@@ -100,7 +100,7 @@ function submitTestRequest(state, action) {
     assignedBenchId: null,
   };
   const withRequest = { ...state, testRequests: [...state.testRequests, newRequest] };
-  return addEvent(withRequest, `Test request ${newRequest.id} submitted`, newRequest.id, 'info');
+  return addEvent(withRequest, `Test request ${newRequest.id.toUpperCase()} submitted`, newRequest.id, 'info');
 }
 
 function updateTestRequestStatus(state, testRequestId, status) {
@@ -108,7 +108,7 @@ function updateTestRequestStatus(state, testRequestId, status) {
     tr.id === testRequestId ? { ...tr, status } : tr
   );
   const next = { ...state, testRequests };
-  return addEvent(next, `Test request ${testRequestId} ${status}`, testRequestId, 'info');
+  return addEvent(next, `Test request ${testRequestId.toUpperCase()} ${status}`, testRequestId, 'info');
 }
 
 function scheduleTestRequest(state, action) {
@@ -140,7 +140,7 @@ function scheduleTestRequest(state, action) {
     executions: [...state.executions, execution],
     benches,
   };
-  return addEvent(next, `${testRequestId} scheduled on ${benchId}`, testRequestId, 'info');
+  return addEvent(next, `${testRequestId.toUpperCase()} scheduled on ${benchId.toUpperCase()}`, testRequestId, 'info');
 }
 
 function advanceExecutionPhase(state, action) {
@@ -205,7 +205,7 @@ function advanceExecutionPhase(state, action) {
   const next = { ...state, executions, testRequests, benches };
   return addEvent(
     next,
-    `${execution.testRequestId} phase advanced to ${capitalize(nextPhase)}`,
+    `${execution.testRequestId.toUpperCase()} phase advanced to ${capitalize(nextPhase)}`,
     execution.testRequestId,
     nextPhase === 'completed' ? 'success' : 'info'
   );
@@ -254,7 +254,7 @@ function installBench(state, action) {
     facility: { ...state.facility, budget: state.facility.budget - benchType.baseCost },
     transactions: [...state.transactions, transaction],
   };
-  return addEvent(next, `${benchType.name} installed (${newBench.id})`, newBench.id, 'success');
+  return addEvent(next, `${benchType.name} installed (${newBench.id.toUpperCase()})`, newBench.id, 'success');
 }
 
 function upgradeBench(state, action) {
@@ -284,7 +284,7 @@ function upgradeBench(state, action) {
     facility: { ...state.facility, budget: state.facility.budget - cost },
     transactions: [...state.transactions, transaction],
   };
-  return addEvent(next, `${benchId} upgraded to Tier ${nextTier}`, benchId, 'success');
+  return addEvent(next, `${benchId.toUpperCase()} upgraded to Tier ${nextTier}`, benchId, 'success');
 }
 
 function expandRoom(state, action) {

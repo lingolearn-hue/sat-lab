@@ -1,15 +1,38 @@
 import { BENCH_TYPES } from '../../data/catalog.js';
 import { useAppDispatch, useAppState } from '../../context/AppContext.jsx';
-import { formatMoney, getRoomSlotsUsed, getBenchUtilization } from '../../data/selectors.js';
+import { formatMoney, getRoomSlotsUsed, getBenchUtilization, getBenchesForRoom } from '../../data/selectors.js';
 
-export default function BuildPanel({ room, hasEmptySlot }) {
+export default function BuildPanel({ room, hasEmptySlot, isInteractive }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const slotsUsed = getRoomSlotsUsed(state, room.id);
   const utilization = getBenchUtilization(state, room.id);
 
+  // Catalog shown is whatever bench types already exist in this room —
+  // matches the spec's per-lab equipment without a separate catalog-by-room map.
+  const roomBenchTypeIds = [...new Set(getBenchesForRoom(state, room.id).map((b) => b.benchTypeId))];
+  const catalog = roomBenchTypeIds.map((id) => BENCH_TYPES[id]).filter(Boolean);
+
   function install(benchTypeId) {
     dispatch({ type: 'INSTALL_BENCH', roomId: room.id, benchTypeId });
+  }
+
+  if (!isInteractive) {
+    return (
+      <div className="bg-bd-panel border-l border-bd-border-dim p-4 overflow-y-auto">
+        <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-3">{room.name}</div>
+        <div className="border border-dashed border-bd-border-dim rounded-[3px] p-4 text-[11.5px] text-bd-text-faint leading-relaxed mb-4">
+          This laboratory is shown for facility context. Install/upgrade actions aren't wired up for it in v1 — only the Ion Propulsion Laboratory is fully interactive right now.
+        </div>
+        <div className="border-t border-bd-border-dim pt-2.5">
+          <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-2">Room Stats</div>
+          <StatRow label="Slots used" value={`${slotsUsed} / ${room.maxSlots}`} />
+          <StatRow label="Avg. utilization" value={`${utilization}%`} />
+          <StatRow label="Upkeep / day" value={formatMoney(room.upkeepPerDay)} />
+          <StatRow label="Room tier" value={room.tier} />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -18,7 +41,7 @@ export default function BuildPanel({ room, hasEmptySlot }) {
         {hasEmptySlot ? 'Install — Empty Slot' : 'Bench Catalog'}
       </div>
 
-      {Object.values(BENCH_TYPES).map((bt) => {
+      {catalog.map((bt) => {
         const affordable = state.facility.budget >= bt.baseCost;
         const disabled = !hasEmptySlot || !affordable;
         return (

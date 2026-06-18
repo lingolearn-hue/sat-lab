@@ -27,6 +27,46 @@ export function createInitialState() {
         maxSlots: 4,
         upkeepPerDay: 640,
       },
+      {
+        id: 'room-fcpl',
+        buildingId: 'bldg-a',
+        name: 'Fuel Cell Power System Laboratory',
+        tier: 1,
+        maxSlots: 3,
+        upkeepPerDay: 410,
+      },
+      {
+        id: 'room-sal',
+        buildingId: 'bldg-a',
+        name: 'Solar Array Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 260,
+      },
+      {
+        id: 'room-hil',
+        buildingId: 'bldg-a',
+        name: 'Hardware-in-the-Loop Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 510,
+      },
+      {
+        id: 'room-sil',
+        buildingId: 'bldg-a',
+        name: 'Software-in-the-Loop Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 300,
+      },
+      {
+        id: 'room-sit',
+        buildingId: 'bldg-a',
+        name: 'Satellite Integration Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 580,
+      },
     ],
     benches: [
       {
@@ -62,6 +102,24 @@ export function createInitialState() {
         purchaseCost: 18000,
         hoursUsed: 22,
       },
+
+      // Fuel Cell Power System Laboratory (2/3 slots used)
+      { id: 'bnc-fcpl-01', roomId: 'room-fcpl', benchTypeId: 'fuel_cell_stack', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 2 }, purchaseCost: 24000, hoursUsed: 96 },
+      { id: 'bnc-fcpl-02', roomId: 'room-fcpl', benchTypeId: 'fuel_cell_stack', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 24000, hoursUsed: 40 },
+
+      // Solar Array Laboratory (1/2 slots used)
+      { id: 'bnc-sal-01', roomId: 'room-sal', benchTypeId: 'solar_panel', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 4 }, purchaseCost: 21000, hoursUsed: 18 },
+
+      // Hardware-in-the-Loop Laboratory (2/2 slots used, both running)
+      { id: 'bnc-hil-01', roomId: 'room-hil', benchTypeId: 'hil_rig', tier: 2, status: 'running', currentExecutionId: null, purchaseDate: { day: 1 }, purchaseCost: 38000, hoursUsed: 210 },
+      { id: 'bnc-hil-02', roomId: 'room-hil', benchTypeId: 'hil_rig', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 6 }, purchaseCost: 38000, hoursUsed: 55 },
+
+      // Software-in-the-Loop Laboratory (1/2 slots used)
+      { id: 'bnc-sil-01', roomId: 'room-sil', benchTypeId: 'sil_workstation', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 7 }, purchaseCost: 16000, hoursUsed: 30 },
+
+      // Satellite Integration Laboratory (2/2 slots used, both running)
+      { id: 'bnc-sit-01', roomId: 'room-sit', benchTypeId: 'integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 2 }, purchaseCost: 42000, hoursUsed: 88 },
+      { id: 'bnc-sit-02', roomId: 'room-sit', benchTypeId: 'integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 8 }, purchaseCost: 42000, hoursUsed: 33 },
     ],
     projects: [
       {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { getBenchesForRoom, getRoomSlotsUsed, formatMoney } from '../../data/selectors.js';
 import { ROOM_EXPANSION_COST_BASE, BENCH_TYPES } from '../../data/catalog.js';
@@ -8,11 +9,13 @@ import FacilityMap from './FacilityMap.jsx';
 export default function BuildShell() {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const room = state.rooms[0];
+  const [roomId, setRoomId] = useState('room-ipl');
+  const room = state.rooms.find((r) => r.id === roomId) || state.rooms[0];
   const benches = getBenchesForRoom(state, room.id);
   const slotsUsed = getRoomSlotsUsed(state, room.id);
   const emptySlots = Math.max(0, room.maxSlots - slotsUsed);
   const expansionCost = ROOM_EXPANSION_COST_BASE * room.tier;
+  const isInteractive = room.id === 'room-ipl'; // v1: only Ion Propulsion Lab has install/upgrade economy wired
 
   return (
     <div className="grid grid-cols-[1fr_280px] bg-bd-bg min-h-0 flex-1 overflow-hidden font-mono">
@@ -31,18 +34,18 @@ export default function BuildShell() {
         }}
       >
         <div className="absolute top-3.5 right-4.5 text-[10px] text-bd-text-faint text-right leading-relaxed opacity-70">
-          DWG: EPC-IPL-A3<br />SCALE 1:50
+          DWG: EPC-{room.id.split('-')[1].toUpperCase()}-A3<br />SCALE 1:50
         </div>
 
         <div className="text-[11.5px] text-bd-text-faint mb-1 tracking-wide">
-          SATELLITE POWERTRAIN TEST DEPT → <span className="text-bd-orange">ELECTRIC PROPULSION TEST CENTER</span> → ION PROPULSION LAB
+          SATELLITE POWERTRAIN TEST DEPT → <span className="text-bd-orange">ELECTRIC PROPULSION TEST CENTER</span> → {room.name.toUpperCase()}
         </div>
         <div className="text-[19px] font-bold tracking-tight text-bd-text mb-0.5">{room.name}</div>
         <div className="text-xs text-bd-text-dim mb-5">Building A · Electric Propulsion Test Center · room tier {room.tier}</div>
 
         <div className="border border-bd-cad-cyan p-6 pt-7 relative mb-2" style={{ boxShadow: '0 0 0 1px rgba(63,168,173,0.15)' }}>
           <div className="absolute -top-[9px] left-4 bg-bd-bg px-2 text-[10px] text-bd-cad-cyan tracking-wide">
-            ROOM ENVELOPE — {(4 + room.tier * 1.2).toFixed(1)}m × 5.2m
+            ROOM ENVELOPE — {(7.2 + room.tier * 1.2).toFixed(1)}m × 5.2m
           </div>
           <div className="absolute -top-[9px] right-4 bg-bd-bg px-1.5 text-[9.5px] text-bd-cad-cyan opacity-55">
             {room.maxSlots} SLOTS
@@ -58,44 +61,44 @@ export default function BuildShell() {
         </div>
         <div className="text-[10.5px] text-bd-cad-cyan opacity-70 mb-5 tracking-wide">
           {slotsUsed} / {room.maxSlots} BENCH SLOTS USED · UPKEEP {formatMoney(room.upkeepPerDay)}/DAY
+          {!isInteractive && ' · VIEW ONLY IN V1'}
         </div>
 
-        <div className="flex gap-2.5 items-center mb-8 flex-wrap">
-          <ActionButton
-            primary
-            label="+ EXPAND ROOM"
-            cost={formatMoney(expansionCost)}
-            disabled={state.facility.budget < expansionCost}
-            onClick={() => dispatch({ type: 'EXPAND_ROOM', roomId: room.id })}
-          />
-          {benches.map((bench) => {
-            const benchType = BENCH_TYPES[bench.benchTypeId];
-            const nextTier = bench.tier + 1;
-            const cost = benchType.upgradeCost[nextTier];
-            if (cost === undefined) return null;
-            return (
-              <ActionButton
-                key={bench.id}
-                label={`⤒ UPGRADE ${bench.id.toUpperCase()}`}
-                cost={formatMoney(cost)}
-                disabled={state.facility.budget < cost}
-                onClick={() => dispatch({ type: 'UPGRADE_BENCH', benchId: bench.id })}
-              />
-            );
-          })}
-        </div>
+        {isInteractive && (
+          <div className="flex gap-2.5 items-center mb-8 flex-wrap">
+            <ActionButton
+              primary
+              label="+ EXPAND ROOM"
+              cost={formatMoney(expansionCost)}
+              disabled={state.facility.budget < expansionCost}
+              onClick={() => dispatch({ type: 'EXPAND_ROOM', roomId: room.id })}
+            />
+            {benches.map((bench) => {
+              const benchType = BENCH_TYPES[bench.benchTypeId];
+              const nextTier = bench.tier + 1;
+              const cost = benchType.upgradeCost[nextTier];
+              if (cost === undefined) return null;
+              return (
+                <ActionButton
+                  key={bench.id}
+                  label={`⤒ UPGRADE ${bench.id.toUpperCase()}`}
+                  cost={formatMoney(cost)}
+                  disabled={state.facility.budget < cost}
+                  onClick={() => dispatch({ type: 'UPGRADE_BENCH', benchId: bench.id })}
+                />
+              );
+            })}
+          </div>
+        )}
 
-        <FacilityMap
-          currentRoomName={room.name}
-          currentSummary={`${slotsUsed}/${room.maxSlots} benches · live`}
-        />
+        <FacilityMap currentRoomId={room.id} onSelectRoom={setRoomId} />
 
         <div className="absolute bottom-3.5 right-4.5 text-[10.5px] text-bd-cad-cyan opacity-60 tracking-wide">
           X 412.0 · Y 188.5 · Z 0.0
         </div>
       </div>
 
-      <BuildPanel room={room} hasEmptySlot={emptySlots > 0} />
+      <BuildPanel room={room} hasEmptySlot={isInteractive && emptySlots > 0} isInteractive={isInteractive} />
     </div>
   );
 }

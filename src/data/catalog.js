@@ -32,6 +32,60 @@ export const BENCH_TYPES = {
     maxTier: 2,
     upgradeCost: { 2: 14200 },
   },
+
+  // Other EPC labs — not yet installable/upgradeable in v1 (display-only on the
+  // facility minimap and Laboratories module). Real Room + Bench entities, just
+  // without an Operate-mode test-request workflow built on top yet.
+  fuel_cell_stack: {
+    id: 'fuel_cell_stack',
+    name: 'Fuel Cell Stack Bench',
+    description: 'Fuel cell stack efficiency, lifetime, and load cycling.',
+    procedures: [],
+    baseCost: 24000,
+    baseCycleTimeHours: 10,
+    maxTier: 2,
+    upgradeCost: { 2: 11000 },
+  },
+  solar_panel: {
+    id: 'solar_panel',
+    name: 'Solar Panel Bench',
+    description: 'Solar cell and panel efficiency, thermal aging, deployment testing.',
+    procedures: [],
+    baseCost: 21000,
+    baseCycleTimeHours: 8,
+    maxTier: 2,
+    upgradeCost: { 2: 9500 },
+  },
+  hil_rig: {
+    id: 'hil_rig',
+    name: 'HIL Rig',
+    description: 'Closed-loop hardware-in-the-loop subsystem validation and fault injection.',
+    procedures: [],
+    baseCost: 38000,
+    baseCycleTimeHours: 5,
+    maxTier: 2,
+    upgradeCost: { 2: 17500 },
+  },
+  sil_workstation: {
+    id: 'sil_workstation',
+    name: 'SIL Workstation',
+    description: 'Flight software, guidance, and navigation algorithm validation.',
+    procedures: [],
+    baseCost: 16000,
+    baseCycleTimeHours: 3,
+    maxTier: 2,
+    upgradeCost: { 2: 7200 },
+  },
+  integration_stand: {
+    id: 'integration_stand',
+    name: 'Integration Stand',
+    description: 'Full satellite subsystem integration and acceptance testing.',
+    procedures: [],
+    baseCost: 42000,
+    baseCycleTimeHours: 14,
+    maxTier: 2,
+    upgradeCost: { 2: 19000 },
+  },
 };
 
 // Test procedures (from spec: Ion Propulsion Laboratory tests)

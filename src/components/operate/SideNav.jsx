@@ -8,10 +8,26 @@ const NAV_ITEMS = [
   { id: 'finance', label: 'Finance', icon: '$' },
 ];
 
-export default function SideNav({ activePage, onNavigate, roomLabel, roomSummary }) {
+// Per spec section 4: roles see different primary screens.
+// Test Engineer: Projects, Test Requests, DUT Management, Reports.
+// Lab Manager: Scheduler, Resource Dashboard, Laboratory Overview.
+export const ROLE_NAV_IDS = {
+  test_engineer: ['dashboard', 'projects', 'scheduling', 'assets'],
+  lab_manager: ['dashboard', 'scheduling', 'laboratories', 'personnel', 'finance'],
+};
+
+export const ROLE_DEFAULT_PAGE = {
+  test_engineer: 'projects',
+  lab_manager: 'scheduling',
+};
+
+export default function SideNav({ activePage, onNavigate, roomLabel, roomSummary, role }) {
+  const visibleIds = ROLE_NAV_IDS[role] || NAV_ITEMS.map((i) => i.id);
+  const visibleItems = NAV_ITEMS.filter((item) => visibleIds.includes(item.id));
+
   return (
     <div className="bg-op-panel border-r border-op-border p-3 flex flex-col gap-0.5">
-      {NAV_ITEMS.map((item) => (
+      {visibleItems.map((item) => (
         <button
           key={item.id}
           onClick={() => onNavigate(item.id)}
