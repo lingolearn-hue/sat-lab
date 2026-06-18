@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  /* Operate mode (light, enterprise) */
+  --color-op-bg: #F7F8FA;
+  --color-op-panel: #FFFFFF;
+  --color-op-panel-raised: #FBFBFC;
+  --color-op-border: #E3E6EA;
+  --color-op-border-strong: #D2D6DC;
+  --color-op-text: #1A1D21;
+  --color-op-text-dim: #6B7280;
+  --color-op-text-faint: #9AA1AB;
+  --color-op-teal: #1E8A7C;
+  --color-op-teal-dim: #16695E;
+  --color-op-teal-glow: rgba(30, 138, 124, 0.08);
+  --color-op-orange: #C25A18;
+  --color-op-red: #C03B3B;
+
+  /* Build mode (dark, CAD/game) */
+  --color-bd-bg: #0A0E0C;
+  --color-bd-panel: #11161A;
+  --color-bd-panel-raised: #161D22;
+  --color-bd-border: #2A2520;
+  --color-bd-border-dim: #1E2A2E;
+  --color-bd-cad-line: #1B3A3D;
+  --color-bd-cad-line-bright: #2C5A5E;
+  --color-bd-cad-cyan: #3FA8AD;
+  --color-bd-text: #DCE3E0;
+  --color-bd-text-dim: #8A9590;
+  --color-bd-text-faint: #4D5A56;
+  --color-bd-orange: #E8742C;
+  --color-bd-orange-dim: #A8531F;
+  --color-bd-orange-glow: rgba(232, 116, 44, 0.14);
+
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+@layer base {
+  body {
+    margin: 0;
+    font-feature-settings: "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s infinite;
+}
