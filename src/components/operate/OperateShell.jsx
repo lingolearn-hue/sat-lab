@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import SideNav, { ROLE_NAV_IDS, ROLE_DEFAULT_PAGE } from './SideNav.jsx';
 import DashboardPage from './DashboardPage.jsx';
+import OperationsPage from './OperationsPage.jsx';
 import SchedulingPage from './SchedulingPage.jsx';
 import ProjectsPage from './ProjectsPage.jsx';
 import LaboratoriesPage from './LaboratoriesPage.jsx';
@@ -39,6 +40,7 @@ export default function OperateShell() {
       />
       <div className="overflow-y-auto">
         {activePage === 'dashboard' && <DashboardPage />}
+        {activePage === 'operations' && <OperationsPage />}
         {activePage === 'scheduling' && <SchedulingPage />}
         {activePage === 'projects' && <ProjectsPage />}
         {activePage === 'laboratories' && <LaboratoriesPage />}

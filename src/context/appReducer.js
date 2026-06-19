@@ -1,4 +1,14 @@
-import { BENCH_TYPES, ROOM_EXPANSION_COST_BASE, EXECUTION_PHASE_DURATIONS_HOURS } from '../data/catalog.js';
+import {
+  BENCH_TYPES,
+  ROOM_EXPANSION_COST_BASE,
+  EXECUTION_PHASE_DURATIONS_HOURS,
+  MAINTENANCE_DUE_HOURS,
+  MAINTENANCE_OVERDUE_HOURS,
+  MAINTENANCE_DURATION_HOURS,
+  CALIBRATION_DURATION_HOURS,
+  MAINTENANCE_COST,
+  CALIBRATION_COST,
+} from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
 
 let idCounter = 1000;
@@ -51,6 +61,12 @@ export function appReducer(state, action) {
     case 'ADD_EVENT':
       return addEvent(state, action.message, action.relatedEntityId, action.severity);
 
+    case 'PERFORM_MAINTENANCE':
+      return performMaintenance(state, action);
+
+    case 'PERFORM_CALIBRATION':
+      return performCalibration(state, action);
+
     default:
       return state;
   }
@@ -69,11 +85,47 @@ function tickClock(state, simMinutesElapsed) {
     simClock: { ...state.simClock, day, hour, minute },
   };
 
+  const simHoursElapsed = simMinutesElapsed / 60;
+  next = accrueBenchWear(next, simHoursElapsed);
+
   const daysPassed = day - state.simClock.day;
   if (daysPassed > 0) {
     next = chargeDailyUpkeep(next, daysPassed);
   }
 
+  return next;
+}
+
+function accrueBenchWear(state, hoursElapsed) {
+  if (hoursElapsed <= 0) return state;
+  let events = [];
+
+  const benches = state.benches.map((bench) => {
+    if (bench.status !== 'running') return bench;
+
+    const wasMaintOk = (bench.hoursSinceLastMaintenance ?? 0) < MAINTENANCE_DUE_HOURS;
+    const updated = {
+      ...bench,
+      hoursUsed: bench.hoursUsed + hoursElapsed,
+      hoursSinceLastMaintenance: (bench.hoursSinceLastMaintenance ?? 0) + hoursElapsed,
+      hoursSinceLastCalibration: (bench.hoursSinceLastCalibration ?? 0) + hoursElapsed,
+    };
+
+    if (wasMaintOk && updated.hoursSinceLastMaintenance >= MAINTENANCE_DUE_HOURS) {
+      events.push({ message: `${bench.id.toUpperCase()} maintenance now due`, relatedEntityId: bench.id, severity: 'warning' });
+    }
+    if (updated.hoursSinceLastMaintenance >= MAINTENANCE_OVERDUE_HOURS && bench.status !== 'out_of_service') {
+      events.push({ message: `${bench.id.toUpperCase()} overdue for maintenance — taken out of service`, relatedEntityId: bench.id, severity: 'warning' });
+      updated.status = 'out_of_service';
+    }
+
+    return updated;
+  });
+
+  let next = { ...state, benches };
+  for (const evt of events) {
+    next = addEvent(next, evt.message, evt.relatedEntityId, evt.severity);
+  }
   return next;
 }
 
@@ -343,6 +395,64 @@ function upgradeBench(state, action) {
     transactions: [...state.transactions, transaction],
   };
   return addEvent(next, `${benchId.toUpperCase()} upgraded to Tier ${nextTier}`, benchId, 'success');
+}
+
+// ---- Operator actions: maintenance & calibration ----
+
+function performMaintenance(state, action) {
+  const { benchId } = action;
+  const bench = state.benches.find((b) => b.id === benchId);
+  if (!bench) return state;
+  if (bench.status === 'running') return state; // can't pull a bench mid-test
+
+  const benches = state.benches.map((b) =>
+    b.id === benchId ? { ...b, status: 'idle', hoursSinceLastMaintenance: 0 } : b
+  );
+
+  const transaction = {
+    id: nextId('txn'),
+    simDay: state.simClock.day,
+    type: 'opex',
+    category: 'maintenance',
+    amount: -MAINTENANCE_COST,
+    description: `Maintenance performed on ${benchId.toUpperCase()}`,
+  };
+
+  const next = {
+    ...state,
+    benches,
+    facility: { ...state.facility, budget: state.facility.budget - MAINTENANCE_COST },
+    transactions: [...state.transactions, transaction],
+  };
+  return addEvent(next, `${benchId.toUpperCase()} maintenance completed`, benchId, 'success');
+}
+
+function performCalibration(state, action) {
+  const { benchId } = action;
+  const bench = state.benches.find((b) => b.id === benchId);
+  if (!bench) return state;
+  if (bench.status === 'running') return state;
+
+  const benches = state.benches.map((b) =>
+    b.id === benchId ? { ...b, hoursSinceLastCalibration: 0 } : b
+  );
+
+  const transaction = {
+    id: nextId('txn'),
+    simDay: state.simClock.day,
+    type: 'opex',
+    category: 'calibration',
+    amount: -CALIBRATION_COST,
+    description: `Calibration performed on ${benchId.toUpperCase()}`,
+  };
+
+  const next = {
+    ...state,
+    benches,
+    facility: { ...state.facility, budget: state.facility.budget - CALIBRATION_COST },
+    transactions: [...state.transactions, transaction],
+  };
+  return addEvent(next, `${benchId.toUpperCase()} calibration completed`, benchId, 'success');
 }
 
 function expandRoom(state, action) {

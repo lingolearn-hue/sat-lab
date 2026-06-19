@@ -114,3 +114,13 @@ export const EXECUTION_PHASE_DURATIONS_HOURS = {
   running: null, // comes from bench cycle time
   review: 2,
 };
+
+// Maintenance/calibration lifecycle (Operator role).
+// Hours are accrued in real bench.hoursUsed, which already increments as tests run.
+export const MAINTENANCE_DUE_HOURS = 250; // hours of use since last maintenance before it's due
+export const MAINTENANCE_OVERDUE_HOURS = 400; // hours since last maintenance before bench goes out of service
+export const CALIBRATION_DUE_HOURS = 500; // hours of use since last calibration before it's due
+export const MAINTENANCE_DURATION_HOURS = 3; // sim-hours an Operator's maintenance action takes
+export const CALIBRATION_DURATION_HOURS = 2;
+export const MAINTENANCE_COST = 1200; // flat opex cost per maintenance action
+export const CALIBRATION_COST = 800;

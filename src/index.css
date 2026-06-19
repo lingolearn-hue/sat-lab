@@ -51,3 +51,17 @@
 .animate-pulse-dot {
   animation: pulse-dot 2s infinite;
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print\:bg-white, .print\:bg-white * {
+    visibility: visible;
+  }
+  .print\:bg-white {
+    position: fixed;
+    inset: 0;
+    overflow: visible !important;
+  }
+}

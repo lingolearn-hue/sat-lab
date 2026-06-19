@@ -3,6 +3,7 @@ import { formatMoney } from '../../data/selectors.js';
 import { useRef, useState } from 'react';
 
 const ROLES = {
+  operator: { label: 'Operator', initials: 'OP' },
   test_engineer: { label: 'Test Engineer', initials: 'TE' },
   lab_manager: { label: 'Laboratory Manager', initials: 'LM' },
 };

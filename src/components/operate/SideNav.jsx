@@ -1,5 +1,6 @@
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '▢' },
+  { id: 'operations', label: 'Operations', icon: '⚙' },
   { id: 'projects', label: 'Projects', icon: '▣' },
   { id: 'scheduling', label: 'Scheduling', icon: '▦' },
   { id: 'laboratories', label: 'Laboratories', icon: '⌂' },
@@ -9,14 +10,17 @@ const NAV_ITEMS = [
 ];
 
 // Per spec section 4: roles see different primary screens.
+// Operator: My Tasks, Running Tests, Equipment Status (combined into "Operations" for v1).
 // Test Engineer: Projects, Test Requests, DUT Management, Reports.
 // Lab Manager: Scheduler, Resource Dashboard, Laboratory Overview.
 export const ROLE_NAV_IDS = {
+  operator: ['dashboard', 'operations', 'assets'],
   test_engineer: ['dashboard', 'projects', 'scheduling', 'assets'],
   lab_manager: ['dashboard', 'scheduling', 'laboratories', 'personnel', 'finance'],
 };
 
 export const ROLE_DEFAULT_PAGE = {
+  operator: 'operations',
   test_engineer: 'projects',
   lab_manager: 'scheduling',
 };

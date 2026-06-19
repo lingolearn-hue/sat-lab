@@ -1,4 +1,10 @@
-import { BENCH_TYPES, PROCEDURES } from '../data/catalog.js';
+import {
+  BENCH_TYPES,
+  PROCEDURES,
+  MAINTENANCE_DUE_HOURS,
+  MAINTENANCE_OVERDUE_HOURS,
+  CALIBRATION_DUE_HOURS,
+} from '../data/catalog.js';
 
 export function getRoom(state, roomId) {
   return state.rooms.find((r) => r.id === roomId);
@@ -135,4 +141,31 @@ export function getCostPerCompletedTest(state) {
 
 export function getDaysUntil(state, targetDay) {
   return targetDay - state.simClock.day;
+}
+
+// ---- Maintenance & Calibration (Operator role) ----
+// Derived from hoursSinceLastMaintenance/hoursSinceLastCalibration rather than stored
+// as a separate status, so it can never drift out of sync with the underlying hours.
+
+export function getMaintenanceState(bench) {
+  const hours = bench.hoursSinceLastMaintenance ?? 0;
+  if (hours >= MAINTENANCE_OVERDUE_HOURS) return 'overdue';
+  if (hours >= MAINTENANCE_DUE_HOURS) return 'due';
+  return 'ok';
+}
+
+export function getCalibrationState(bench) {
+  const hours = bench.hoursSinceLastCalibration ?? 0;
+  if (hours >= CALIBRATION_DUE_HOURS) return 'due';
+  return 'ok';
+}
+
+export function getBenchNeedsAttention(bench) {
+  return getMaintenanceState(bench) !== 'ok' || getCalibrationState(bench) !== 'ok' || bench.status === 'out_of_service';
+}
+
+export function getMaintenanceTasksForBenches(benches) {
+  return benches
+    .map((bench) => ({ bench, maintenanceState: getMaintenanceState(bench), calibrationState: getCalibrationState(bench) }))
+    .filter((t) => t.maintenanceState !== 'ok' || t.calibrationState !== 'ok' || t.bench.status === 'out_of_service');
 }

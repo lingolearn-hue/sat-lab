@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { getDut, getProcedure, TEST_REQUEST_STATUS_LABELS } from '../../data/selectors.js';
+import { buildTestReport, buildProjectReport } from '../../data/reports.js';
 import NewTestRequestModal from './NewTestRequestModal.jsx';
+import ReportOverlay from './ReportOverlay.jsx';
 
 const STATUS_BADGE = {
   running: 'bg-op-teal-glow text-op-teal-dim',
@@ -16,10 +18,20 @@ const STATUS_BADGE = {
 
 export default function ProjectsPage() {
   const state = useAppState();
-  const dispatch = useAppDispatch();
   const [expandedProjectId, setExpandedProjectId] = useState(state.projects[0]?.id);
   const [showNewRequest, setShowNewRequest] = useState(false);
+  const [activeReport, setActiveReport] = useState(null);
   const room = state.rooms[0];
+
+  function openTestReport(testRequestId) {
+    const report = buildTestReport(state, testRequestId);
+    if (report) setActiveReport(report);
+  }
+
+  function openProjectReport(projectId) {
+    const report = buildProjectReport(state, projectId);
+    if (report) setActiveReport(report);
+  }
 
   return (
     <div className="px-8 py-7">
@@ -44,16 +56,16 @@ export default function ProjectsPage() {
 
         return (
           <div key={project.id} className="bg-op-panel border border-op-border rounded-lg overflow-hidden mb-4">
-            <button
-              onClick={() => setExpandedProjectId(isExpanded ? null : project.id)}
-              className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-op-panel-raised transition-colors"
-            >
-              <div>
+            <div className="w-full flex items-center justify-between px-5 py-4">
+              <button
+                onClick={() => setExpandedProjectId(isExpanded ? null : project.id)}
+                className="flex-1 text-left hover:opacity-80 transition-opacity"
+              >
                 <div className="text-[15px] font-bold text-op-text">{project.name}</div>
                 <div className="text-[12.5px] text-op-text-dim mt-0.5">
                   {project.customer} · Due Day {project.dueDate.day} · {formatStatus(project.status)}
                 </div>
-              </div>
+              </button>
               <div className="flex items-center gap-5">
                 <div className="text-right">
                   <div className="text-[11px] text-op-text-faint uppercase tracking-wide">Progress</div>
@@ -61,9 +73,19 @@ export default function ProjectsPage() {
                     {completedCount} / {projectRequests.length} requests
                   </div>
                 </div>
-                <span className="text-op-text-faint text-xs">{isExpanded ? '▾' : '▸'}</span>
+                {completedCount > 0 && (
+                  <button
+                    onClick={() => openProjectReport(project.id)}
+                    className="text-[12px] font-semibold text-op-teal-dim hover:underline whitespace-nowrap"
+                  >
+                    View Report
+                  </button>
+                )}
+                <button onClick={() => setExpandedProjectId(isExpanded ? null : project.id)} className="text-op-text-faint text-xs">
+                  {isExpanded ? '▾' : '▸'}
+                </button>
               </div>
-            </button>
+            </div>
 
             {isExpanded && (
               <div className="border-t border-op-border">
@@ -76,7 +98,7 @@ export default function ProjectsPage() {
                   {projectDuts.map((dut) => (
                     <div key={dut.id} className="text-[12px] px-3 py-1.5 rounded-md bg-op-panel-raised border border-op-border text-op-text-dim">
                       <span className="font-semibold text-op-text">{dut.name}</span>
-                      {' · '}{(dut.specs.ratedEfficiency * 100).toFixed(0)}% rated eff.
+                      {dut.specs.ratedEfficiency != null && <>{' · '}{(dut.specs.ratedEfficiency * 100).toFixed(0)}% rated eff.</>}
                     </div>
                   ))}
                 </div>
@@ -84,7 +106,7 @@ export default function ProjectsPage() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr>
-                      {['Request', 'DUT', 'Procedure', 'Priority', 'Status', 'Due'].map((h) => (
+                      {['Request', 'DUT', 'Procedure', 'Priority', 'Status', 'Due', 'Report'].map((h) => (
                         <th key={h} className="text-left text-[11px] font-semibold text-op-text-faint uppercase tracking-wide px-5 py-2.5 border-b border-op-border">
                           {h}
                         </th>
@@ -107,12 +129,21 @@ export default function ProjectsPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3 text-[13px] text-op-text-dim">Day {tr.requestedCompletionDay}</td>
+                          <td className="px-5 py-3">
+                            {tr.status === 'completed' ? (
+                              <button onClick={() => openTestReport(tr.id)} className="text-[12px] font-semibold text-op-teal-dim hover:underline">
+                                View →
+                              </button>
+                            ) : (
+                              <span className="text-[11.5px] text-op-text-faint">—</span>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
                     {projectRequests.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-5 py-6 text-center text-[12.5px] text-op-text-faint">
+                        <td colSpan={7} className="px-5 py-6 text-center text-[12.5px] text-op-text-faint">
                           No test requests yet for this project.
                         </td>
                       </tr>
@@ -126,6 +157,7 @@ export default function ProjectsPage() {
       })}
 
       {showNewRequest && <NewTestRequestModal room={room} onClose={() => setShowNewRequest(false)} />}
+      {activeReport && <ReportOverlay report={activeReport} onClose={() => setActiveReport(null)} />}
     </div>
   );
 }
