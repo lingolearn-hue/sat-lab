@@ -1,7 +1,7 @@
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import {
   getBenchesForRoom,
-  getBenchUtilization,
+  getRoom,
   getDut,
   getProcedure,
   getExecutionForTestRequest,
@@ -23,25 +23,29 @@ const STATUS_BADGE = {
   archived: 'bg-[rgba(154,161,171,0.10)] text-op-text-faint',
 };
 
+// v1: these EPC rooms have a full test-request workflow wired up.
+const INTERACTIVE_ROOM_IDS = ['room-ipl', 'room-fcpl'];
+
 export default function SchedulingPage() {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [showNewRequest, setShowNewRequest] = useState(false);
-  const room = state.rooms[0]; // v1: single room slice
-  const benches = getBenchesForRoom(state, room.id);
-  const utilization = getBenchUtilization(state, room.id);
+  const interactiveRooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
+  const allBenches = interactiveRooms.flatMap((r) => getBenchesForRoom(state, r.id));
 
-  const runningCount = benches.filter((b) => b.status === 'running').length;
+  const runningCount = allBenches.filter((b) => b.status === 'running').length;
   const waitingCount = state.testRequests.filter((tr) => ['submitted', 'approved'].includes(tr.status)).length;
   const completedCount = state.testRequests.filter((tr) => tr.status === 'completed').length;
+  const utilization = allBenches.length === 0 ? 0 : Math.round((runningCount / allBenches.length) * 100);
 
   const visibleRequests = state.testRequests.filter((tr) => tr.status !== 'archived');
+  const defaultRoomForModal = interactiveRooms[0];
 
   return (
     <div className="px-8 py-7">
       <div className="flex items-baseline justify-between mb-6">
         <div>
-          <div className="text-xl font-bold tracking-tight text-op-text">Scheduling — {room.name}</div>
+          <div className="text-xl font-bold tracking-tight text-op-text">Scheduling</div>
           <div className="text-[13px] text-op-text-dim mt-1">
             Electric Propulsion Test Center (Building A) · Resource allocation across benches and personnel
           </div>
@@ -55,7 +59,7 @@ export default function SchedulingPage() {
       </div>
 
       <div className="grid grid-cols-5 gap-3 mb-7">
-        <Kpi label="Running" value={runningCount} delta={`of ${benches.length} benches`} />
+        <Kpi label="Running" value={runningCount} delta={`of ${allBenches.length} benches`} />
         <Kpi label="Waiting" value={waitingCount} delta="queued requests" />
         <Kpi label="Bench Util." value={`${utilization}%`} delta="live" accentTeal />
         <Kpi label="Completed" value={completedCount} delta="this scenario" />
@@ -68,8 +72,13 @@ export default function SchedulingPage() {
             <div className="text-[13.5px] font-semibold text-op-text">Bench Status</div>
           </div>
           <div className="p-2.5 flex flex-col gap-1.5">
-            {benches.map((bench) => (
-              <BenchStatusCard key={bench.id} bench={bench} />
+            {interactiveRooms.map((room) => (
+              <div key={room.id}>
+                <div className="px-1.5 py-1 text-[10.5px] font-semibold text-op-text-faint uppercase tracking-wide">{room.name}</div>
+                {getBenchesForRoom(state, room.id).map((bench) => (
+                  <BenchStatusCard key={bench.id} bench={bench} />
+                ))}
+              </div>
             ))}
           </div>
         </div>
@@ -93,12 +102,12 @@ export default function SchedulingPage() {
 
       <div className="bg-op-panel border border-op-border rounded-lg overflow-hidden mt-4">
         <div className="px-4.5 py-3.5 border-b border-op-border flex items-center justify-between">
-          <div className="text-[13.5px] font-semibold text-op-text">Test Requests — {room.name}</div>
+          <div className="text-[13.5px] font-semibold text-op-text">Test Requests — All Laboratories</div>
         </div>
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              {['Request', 'DUT', 'Procedure', 'Bench', 'Status', 'Due', 'Action'].map((h) => (
+              {['Request', 'Laboratory', 'DUT', 'Procedure', 'Bench', 'Status', 'Due', 'Action'].map((h) => (
                 <th key={h} className="text-left text-[11px] font-semibold text-op-text-faint uppercase tracking-wide px-4.5 py-2.5 border-b border-op-border">
                   {h}
                 </th>
@@ -111,9 +120,13 @@ export default function SchedulingPage() {
               const procedure = getProcedure(tr.procedure);
               const execution = getExecutionForTestRequest(state, tr.id);
               const timing = execution ? getPhaseTimeRemaining(state, execution) : null;
+              const assignedBench = tr.assignedBenchId ? state.benches.find((b) => b.id === tr.assignedBenchId) : null;
+              const room = assignedBench ? getRoom(state, assignedBench.roomId) : roomForProcedure(state, tr.procedure);
+              const roomBenches = room ? getBenchesForRoom(state, room.id) : [];
               return (
                 <tr key={tr.id} className="border-b border-op-border last:border-b-0">
                   <td className="px-4.5 py-3 font-mono text-[12.5px] text-op-text-dim">{tr.id.toUpperCase()}</td>
+                  <td className="px-4.5 py-3 text-[12px] text-op-text-dim">{room?.name || '—'}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text">{dut?.name}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text">{procedure?.name}</td>
                   <td className="px-4.5 py-3 font-mono text-[12.5px] text-op-text-dim">{tr.assignedBenchId?.toUpperCase() || '—'}</td>
@@ -124,7 +137,7 @@ export default function SchedulingPage() {
                   </td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text-dim">Day {tr.requestedCompletionDay}</td>
                   <td className="px-4.5 py-3">
-                    <RowAction state={state} dispatch={dispatch} testRequest={tr} execution={execution} timing={timing} benches={benches} />
+                    <RowAction state={state} dispatch={dispatch} testRequest={tr} execution={execution} timing={timing} benches={roomBenches} />
                   </td>
                 </tr>
               );
@@ -133,11 +146,40 @@ export default function SchedulingPage() {
         </table>
       </div>
 
-      {showNewRequest && (
-        <NewTestRequestModal room={room} onClose={() => setShowNewRequest(false)} />
+      {showNewRequest && defaultRoomForModal && (
+        <NewTestRequestModal room={defaultRoomForModal} onClose={() => setShowNewRequest(false)} />
       )}
     </div>
   );
+}
+
+// Best-effort room lookup for requests that haven't been assigned a bench yet —
+// matches the procedure to whichever bench type in the catalog supports it.
+function roomForProcedure(state, procedureId) {
+  for (const room of state.rooms) {
+    const benches = getBenchesForRoom(state, room.id);
+    for (const bench of benches) {
+      // local import avoided; check via global catalog through bench type id convention
+      if (bench.benchTypeId && procedureSupportsBenchType(procedureId, bench.benchTypeId)) {
+        return room;
+      }
+    }
+  }
+  return null;
+}
+
+function procedureSupportsBenchType(procedureId, benchTypeId) {
+  const map = {
+    component_drive: ['component'],
+    endurance: ['endurance'],
+    lifetime: ['endurance'],
+    efficiency_mapping: ['perf_mapping'],
+    power_consumption: ['perf_mapping'],
+    fc_efficiency: ['fuel_cell_stack'],
+    fc_load_cycling: ['fuel_cell_stack'],
+    fc_thermal: ['fuel_cell_stack'],
+  };
+  return (map[procedureId] || []).includes(benchTypeId);
 }
 
 function RowAction({ state, dispatch, testRequest, execution, timing, benches }) {

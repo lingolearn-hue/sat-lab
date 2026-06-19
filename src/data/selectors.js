@@ -94,3 +94,45 @@ export const TEST_REQUEST_STATUS_LABELS = {
   completed: 'Completed',
   archived: 'Archived',
 };
+
+// ---- Finance ----
+
+export function getTotalUpkeepPerDay(state) {
+  return state.rooms.reduce((sum, r) => sum + r.upkeepPerDay, 0);
+}
+
+export function getCapexTotal(state) {
+  return state.transactions
+    .filter((t) => t.type === 'capex')
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+}
+
+export function getTransactionsByCategory(state) {
+  const groups = {};
+  for (const t of state.transactions) {
+    if (!groups[t.category]) groups[t.category] = { category: t.category, total: 0, count: 0 };
+    groups[t.category].total += t.amount;
+    groups[t.category].count += 1;
+  }
+  return Object.values(groups).sort((a, b) => a.total - b.total);
+}
+
+export function getAssetBookValue(state) {
+  // Simple straight-line-ish placeholder: book value = purchase cost, no depreciation modeled yet.
+  return state.benches.reduce((sum, b) => sum + b.purchaseCost, 0) +
+    state.rooms.reduce((sum) => sum, 0); // rooms have no direct purchase cost tracked yet
+}
+
+export function getCostPerCompletedTest(state) {
+  const completed = state.testRequests.filter((tr) => tr.status === 'completed');
+  if (completed.length === 0) return null;
+  const capex = getCapexTotal(state);
+  const dailyUpkeep = getTotalUpkeepPerDay(state);
+  const daysElapsed = Math.max(1, state.simClock.day);
+  const totalSpend = capex + dailyUpkeep * daysElapsed;
+  return totalSpend / completed.length;
+}
+
+export function getDaysUntil(state, targetDay) {
+  return targetDay - state.simClock.day;
+}

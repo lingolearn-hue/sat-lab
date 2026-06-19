@@ -64,9 +64,37 @@ function tickClock(state, simMinutesElapsed) {
   const totalMinutes = dayHourMinuteToTotal(state.simClock.day, state.simClock.hour, state.simClock.minute) + simMinutesElapsed;
   const { day, hour, minute } = totalMinutesToDayHourMinute(totalMinutes);
 
-  return {
+  let next = {
     ...state,
     simClock: { ...state.simClock, day, hour, minute },
+  };
+
+  const daysPassed = day - state.simClock.day;
+  if (daysPassed > 0) {
+    next = chargeDailyUpkeep(next, daysPassed);
+  }
+
+  return next;
+}
+
+function chargeDailyUpkeep(state, daysPassed) {
+  const dailyUpkeep = state.rooms.reduce((sum, r) => sum + r.upkeepPerDay, 0);
+  if (dailyUpkeep <= 0) return state;
+  const totalCharge = dailyUpkeep * daysPassed;
+
+  const transaction = {
+    id: nextId('txn'),
+    simDay: state.simClock.day,
+    type: 'opex',
+    category: 'facility_upkeep',
+    amount: -totalCharge,
+    description: `Daily facility upkeep (${daysPassed} day${daysPassed > 1 ? 's' : ''})`,
+  };
+
+  return {
+    ...state,
+    facility: { ...state.facility, budget: state.facility.budget - totalCharge },
+    transactions: [...state.transactions, transaction],
   };
 }
 
@@ -202,13 +230,43 @@ function advanceExecutionPhase(state, action) {
     );
   }
 
-  const next = { ...state, executions, testRequests, benches };
+  let next = { ...state, executions, testRequests, benches };
+
+  if (nextPhase === 'completed') {
+    next = chargeTestRevenue(next, execution, bench);
+  }
+
   return addEvent(
     next,
     `${execution.testRequestId.toUpperCase()} phase advanced to ${capitalize(nextPhase)}`,
     execution.testRequestId,
     nextPhase === 'completed' ? 'success' : 'info'
   );
+}
+
+const REVENUE_PER_CYCLE_HOUR = 145; // billing rate baked into test pricing
+
+function chargeTestRevenue(state, execution, bench) {
+  const benchType = bench ? BENCH_TYPES[bench.benchTypeId] : null;
+  const cycleHours = benchType ? benchType.baseCycleTimeHours : 4;
+  const passed = execution.result?.passed;
+  // Passed tests bill full rate; failed tests still bill (lab time was spent) but at a discount.
+  const revenue = Math.round(cycleHours * REVENUE_PER_CYCLE_HOUR * (passed === false ? 0.6 : 1));
+
+  const transaction = {
+    id: nextId('txn'),
+    simDay: state.simClock.day,
+    type: 'revenue',
+    category: 'test_billing',
+    amount: revenue,
+    description: `${execution.testRequestId.toUpperCase()} billed to customer${passed === false ? ' (reduced rate — failed test)' : ''}`,
+  };
+
+  return {
+    ...state,
+    facility: { ...state.facility, budget: state.facility.budget + revenue },
+    transactions: [...state.transactions, transaction],
+  };
 }
 
 function capitalize(s) {

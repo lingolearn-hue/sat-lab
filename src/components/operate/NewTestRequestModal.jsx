@@ -5,17 +5,25 @@ import { PROCEDURES } from '../../data/catalog.js';
 export default function NewTestRequestModal({ room, onClose }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const project = state.projects[0];
-  const [dutId, setDutId] = useState(state.duts[0]?.id || '');
+  const [projectId, setProjectId] = useState(state.projects[0]?.id || '');
+  const projectDuts = state.duts.filter((d) => d.projectId === projectId);
+  const [dutId, setDutId] = useState(projectDuts[0]?.id || '');
   const [procedure, setProcedure] = useState('endurance');
   const [priority, setPriority] = useState('normal');
   const [dueDay, setDueDay] = useState(state.simClock.day + 7);
 
+  function handleProjectChange(newProjectId) {
+    setProjectId(newProjectId);
+    const firstDut = state.duts.find((d) => d.projectId === newProjectId);
+    setDutId(firstDut?.id || '');
+  }
+
   function handleSubmit(e) {
     e.preventDefault();
+    if (!projectId || !dutId) return;
     dispatch({
       type: 'SUBMIT_TEST_REQUEST',
-      projectId: project.id,
+      projectId,
       dutId,
       procedure,
       priority,
@@ -33,15 +41,24 @@ export default function NewTestRequestModal({ room, onClose }) {
       >
         <div className="px-5 py-4 border-b border-op-border">
           <div className="text-[15px] font-bold text-op-text">New Test Request</div>
-          <div className="text-[12.5px] text-op-text-dim mt-0.5">{room.name} · {project.name}</div>
+          <div className="text-[12.5px] text-op-text-dim mt-0.5">Electric Propulsion Test Center</div>
         </div>
 
         <div className="px-5 py-4 flex flex-col gap-4">
+          <Field label="Project">
+            <select value={projectId} onChange={(e) => handleProjectChange(e.target.value)} className={selectClass}>
+              {state.projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </Field>
+
           <Field label="Device Under Test">
             <select value={dutId} onChange={(e) => setDutId(e.target.value)} className={selectClass}>
-              {state.duts.map((d) => (
+              {projectDuts.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
+              {projectDuts.length === 0 && <option value="">No DUTs for this project</option>}
             </select>
           </Field>
 
@@ -77,7 +94,7 @@ export default function NewTestRequestModal({ room, onClose }) {
           <button type="button" onClick={onClose} className="text-[13px] font-semibold text-op-text-dim px-4 py-2 rounded-md hover:bg-op-panel-raised">
             Cancel
           </button>
-          <button type="submit" className="text-[13px] font-semibold text-white bg-op-teal px-4 py-2 rounded-md hover:bg-op-teal-dim">
+          <button type="submit" disabled={!dutId} className="text-[13px] font-semibold text-white bg-op-teal px-4 py-2 rounded-md hover:bg-op-teal-dim disabled:opacity-40 disabled:cursor-not-allowed">
             Submit Request
           </button>
         </div>

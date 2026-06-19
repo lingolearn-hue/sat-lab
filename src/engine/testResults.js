@@ -42,6 +42,13 @@ function baseScoreForProcedure(procedure, dut) {
       return clamp01(0.75 - specs.thrustMN / 2200);
     case 'component_drive':
       return clamp01(specs.ratedEfficiency - 0.05);
+    case 'fc_efficiency':
+      return specs.ratedEfficiency ?? clamp01((specs.outputW || 0) / ((specs.inputW || 1)) );
+    case 'fc_load_cycling':
+      // More cells generally means steadier load response in this simplified model.
+      return clamp01(0.55 + (specs.cellCount || 0) / 400);
+    case 'fc_thermal':
+      return clamp01(0.7 - (specs.outputW || 0) / 20000);
     default:
       return 0.5;
   }

@@ -15,7 +15,7 @@ export default function BuildShell() {
   const slotsUsed = getRoomSlotsUsed(state, room.id);
   const emptySlots = Math.max(0, room.maxSlots - slotsUsed);
   const expansionCost = ROOM_EXPANSION_COST_BASE * room.tier;
-  const isInteractive = room.id === 'room-ipl'; // v1: only Ion Propulsion Lab has install/upgrade economy wired
+  const isInteractive = ['room-ipl', 'room-fcpl'].includes(room.id); // v1: these two EPC rooms have a full install/upgrade economy + test workflow wired
 
   return (
     <div className="grid grid-cols-[1fr_280px] bg-bd-bg min-h-0 flex-1 overflow-hidden font-mono">

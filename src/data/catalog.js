@@ -40,7 +40,7 @@ export const BENCH_TYPES = {
     id: 'fuel_cell_stack',
     name: 'Fuel Cell Stack Bench',
     description: 'Fuel cell stack efficiency, lifetime, and load cycling.',
-    procedures: [],
+    procedures: ['fc_efficiency', 'fc_load_cycling', 'fc_thermal'],
     baseCost: 24000,
     baseCycleTimeHours: 10,
     maxTier: 2,
@@ -95,6 +95,11 @@ export const PROCEDURES = {
   lifetime: { id: 'lifetime', name: 'Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.65 },
   efficiency_mapping: { id: 'efficiency_mapping', name: 'Efficiency Mapping', metricKey: 'efficiency', passThreshold: 0.6 },
   power_consumption: { id: 'power_consumption', name: 'Power Consumption Characterization', metricKey: 'powerEfficiency', passThreshold: 0.6 },
+
+  // Fuel Cell Power System Laboratory tests (spec: efficiency, lifetime, load cycling, thermal, system integration)
+  fc_efficiency: { id: 'fc_efficiency', name: 'Fuel Cell Efficiency Test', metricKey: 'efficiency', passThreshold: 0.55 },
+  fc_load_cycling: { id: 'fc_load_cycling', name: 'Load Cycling Test', metricKey: 'cyclingStability', passThreshold: 0.6 },
+  fc_thermal: { id: 'fc_thermal', name: 'Thermal Behavior Test', metricKey: 'thermalStability', passThreshold: 0.6 },
 };
 
 export const ROOM_EXPANSION_COST_BASE = 38000;

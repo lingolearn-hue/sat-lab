@@ -104,7 +104,7 @@ export function createInitialState() {
       },
 
       // Fuel Cell Power System Laboratory (2/3 slots used)
-      { id: 'bnc-fcpl-01', roomId: 'room-fcpl', benchTypeId: 'fuel_cell_stack', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 2 }, purchaseCost: 24000, hoursUsed: 96 },
+      { id: 'bnc-fcpl-01', roomId: 'room-fcpl', benchTypeId: 'fuel_cell_stack', tier: 1, status: 'running', currentExecutionId: 'exec-0301', purchaseDate: { day: 2 }, purchaseCost: 24000, hoursUsed: 96 },
       { id: 'bnc-fcpl-02', roomId: 'room-fcpl', benchTypeId: 'fuel_cell_stack', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 24000, hoursUsed: 40 },
 
       // Solar Array Laboratory (1/2 slots used)
@@ -131,6 +131,15 @@ export function createInitialState() {
         status: 'active',
         budget: 250000,
       },
+      {
+        id: 'proj-sat005',
+        name: 'SAT-005 Fuel Cell Power Qualification',
+        customer: 'Meridian Spaceworks',
+        startDate: { day: 2 },
+        dueDate: { day: 35 },
+        status: 'active',
+        budget: 180000,
+      },
     ],
     duts: [
       {
@@ -150,6 +159,18 @@ export function createInitialState() {
         projectId: 'proj-sat004',
         name: 'XR-5 Ion Thruster',
         specs: { thrustMN: 130, powerW: 5800, ratedEfficiency: 0.79 },
+      },
+      {
+        id: 'dut-fcp1',
+        projectId: 'proj-sat005',
+        name: 'FCP-1 Fuel Cell Power System',
+        specs: { cellCount: 48, outputW: 3200, inputW: 4400, ratedEfficiency: 0.68 },
+      },
+      {
+        id: 'dut-fcp2',
+        projectId: 'proj-sat005',
+        name: 'FCP-2 Fuel Cell Power System',
+        specs: { cellCount: 64, outputW: 4100, inputW: 5500, ratedEfficiency: 0.71 },
       },
     ],
     testRequests: [
@@ -193,6 +214,26 @@ export function createInitialState() {
         status: 'scheduled',
         assignedBenchId: null,
       },
+      {
+        id: 'tr-0301',
+        projectId: 'proj-sat005',
+        dutId: 'dut-fcp1',
+        procedure: 'fc_load_cycling',
+        priority: 'normal',
+        requestedCompletionDay: 18,
+        status: 'running',
+        assignedBenchId: 'bnc-fcpl-01',
+      },
+      {
+        id: 'tr-0303',
+        projectId: 'proj-sat005',
+        dutId: 'dut-fcp2',
+        procedure: 'fc_efficiency',
+        priority: 'normal',
+        requestedCompletionDay: 22,
+        status: 'approved',
+        assignedBenchId: null,
+      },
     ],
     executions: [
       {
@@ -211,6 +252,15 @@ export function createInitialState() {
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 8, 54),
         phaseDurationHours: 4,
+        result: null,
+      },
+      {
+        id: 'exec-0301',
+        testRequestId: 'tr-0301',
+        benchId: 'bnc-fcpl-01',
+        phase: 'running',
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 6, 10),
+        phaseDurationHours: 10,
         result: null,
       },
     ],
