@@ -14,6 +14,7 @@ const STATUS_BADGE = {
   completed: 'bg-op-teal-glow text-op-teal-dim',
   draft: 'bg-[rgba(154,161,171,0.10)] text-op-text-faint',
   archived: 'bg-[rgba(154,161,171,0.10)] text-op-text-faint',
+  expired: 'bg-[rgba(192,59,59,0.10)] text-op-red',
 };
 
 export default function ProjectsPage() {

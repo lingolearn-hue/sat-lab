@@ -412,6 +412,7 @@ export function createInitialState() {
         requestedCompletionDay: 22,
         status: 'approved',
         assignedBenchId: null,
+        submittedOnDay: 13,
       },
       {
         id: 'tr-0401',
@@ -432,6 +433,7 @@ export function createInitialState() {
         requestedCompletionDay: 25,
         status: 'submitted',
         assignedBenchId: null,
+        submittedOnDay: 13, // recent — submitted the day before "now" (day 14), well within the 4-day expiry window
       },
       {
         id: 'tr-0501',
@@ -452,6 +454,7 @@ export function createInitialState() {
         requestedCompletionDay: 30,
         status: 'approved',
         assignedBenchId: null,
+        submittedOnDay: 12,
       },
     ],
     executions: [

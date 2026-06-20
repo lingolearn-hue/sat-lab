@@ -197,12 +197,29 @@ export function getProcedureDurationHours(procedureId, dutId) {
   return Math.round(range.min + seed * (range.max - range.min));
 }
 
-function hashStringToUnitInterval(str) {
-  let hash = 0;
+// Deterministic [0,1) value from a string seed — same input always produces the
+// same output. Used anywhere this app needs "looks varied" without Math.random(),
+// consistent with the project's no-randomness rule (test results, channel statuses,
+// procedure durations, and incoming test request generation all use this).
+//
+// Uses an FNV-1a-style hash specifically because the simpler `hash*31+char` hash
+// has weak avalanche behavior: consecutive seeds like "x:1", "x:2", "x:3" produced
+// nearly-identical output (within ~0.001 of each other), which silently collapsed
+// to the same bucket whenever a caller did Math.floor(seed * smallN) — exactly what
+// happened with the auto-generated test requests, which all came out identical
+// because every "incoming-pick:day:0..5" seed rounded to the same project index.
+export function hashStringToUnitInterval(str) {
+  let hash = 0x811c9dc5; // FNV-1a 32-bit offset basis
   for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0; // FNV prime
   }
-  return (hash % 1000) / 1000;
+  // One extra avalanche round so the low bits (which determine small-modulus
+  // buckets) are well-mixed, not just the high bits.
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 0x45d9f3b) >>> 0;
+  hash ^= hash >>> 16;
+  return (hash >>> 0) / 4294967296; // unsigned 32-bit range, guarantees a [0, 1) result
 }
 
 export const PROCEDURES = {
@@ -237,8 +254,23 @@ export const ROOM_EXPANSION_COST_BASE = 38000;
 export const ROOM_EXPANSION_SLOTS_PER_LEVEL = 1;
 
 export const TEST_REQUEST_STATUSES = [
-  'draft', 'submitted', 'approved', 'scheduled', 'running', 'review', 'completed', 'archived',
+  'draft', 'submitted', 'approved', 'scheduled', 'running', 'review', 'completed', 'archived', 'expired',
 ];
+
+// A submitted/approved request that hasn't been scheduled within this many sim-days
+// of being created expires — keeps the incoming-request backlog from growing
+// indefinitely (rooms can only process so much) and creates real urgency to act on
+// new work rather than letting it sit. Once a request reaches 'scheduled' or later,
+// it's no longer subject to expiry — the customer's request has been acted on, even
+// if the actual test takes weeks (e.g. endurance procedures).
+export const TEST_REQUEST_EXPIRY_DAYS = 4;
+
+// Expired requests aren't deleted — they're auto-archived after this many further
+// days, which hides them from the default Scheduling/active views (already filtered
+// by status !== 'archived') while keeping the full record for history/audit on the
+// Projects page, which intentionally shows a project's complete request history
+// including archived ones.
+export const EXPIRED_TO_ARCHIVED_DAYS = 7;
 
 export const EXECUTION_PHASE_DURATIONS_HOURS = {
   scheduled: 1, // setup buffer before running

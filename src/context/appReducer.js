@@ -12,6 +12,9 @@ import {
   CONSUMABLE_TYPES,
   MIN_TIER_FOR_ENDURANCE,
   getProcedureDurationHours,
+  hashStringToUnitInterval,
+  TEST_REQUEST_EXPIRY_DAYS,
+  EXPIRED_TO_ARCHIVED_DAYS,
 } from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
 import { getQualificationForRoom, findAvailablePersonnel } from '../data/selectors.js';
@@ -183,8 +186,121 @@ function tickClock(state, simMinutesElapsed) {
   if (daysPassed > 0) {
     next = chargeDailyUpkeep(next, daysPassed);
     next = recordDailySnapshot(next);
+    // Expiry and incoming-request generation must both run once per day crossed,
+    // interleaved in chronological order — not as two separate batch passes over
+    // the whole tick. Otherwise a multi-day tick (e.g. clock paused and resumed,
+    // or a fast speed multiplier) checks expiry against only the final day while
+    // requests get backdated to earlier days in that same span, so anything
+    // generated partway through the tick never gets a fair chance to expire.
+    for (let i = 1; i <= daysPassed; i++) {
+      const dayNumber = state.simClock.day + i;
+      next = expireStaleTestRequestsForDay(next, dayNumber);
+      next = generateRequestsForOneDay(next, dayNumber);
+    }
   }
 
+  return next;
+}
+
+function expireStaleTestRequestsForDay(state, currentDay) {
+  let events = [];
+
+  const testRequests = state.testRequests.map((tr) => {
+    if (tr.status === 'expired') {
+      // Already expired — check if it's aged past the grace period into archived.
+      const expiredOnDay = tr.expiredOnDay ?? currentDay;
+      if (currentDay - expiredOnDay >= EXPIRED_TO_ARCHIVED_DAYS) {
+        return { ...tr, status: 'archived' };
+      }
+      return tr;
+    }
+    if (tr.status !== 'submitted' && tr.status !== 'approved') return tr;
+    const submittedOnDay = tr.submittedOnDay ?? currentDay; // defensive default for any pre-existing data without this field
+    if (currentDay - submittedOnDay >= TEST_REQUEST_EXPIRY_DAYS) {
+      events.push({ message: `Test request ${tr.id.toUpperCase()} expired — not scheduled within ${TEST_REQUEST_EXPIRY_DAYS} days`, relatedEntityId: tr.id });
+      return { ...tr, status: 'expired', expiredOnDay: currentDay };
+    }
+    return tr;
+  });
+
+  let next = { ...state, testRequests };
+  for (const evt of events) {
+    next = addEvent(next, evt.message, evt.relatedEntityId, 'warning');
+  }
+  return next;
+}
+
+// ---- Automatic test request arrival ----
+// Customers don't wait for the person to manually create work — 2-6 new requests
+// arrive per sim-day, distributed across the 4 interactive labs' real projects/DUTs.
+// Deterministic, not Math.random(): the count and selection are derived from the day
+// number itself, so the exact same sequence of incoming requests happens every time
+// you play from the same save, consistent with the rest of the app's "no randomness"
+// rule. Auto-created requests start at 'submitted', same as manually-created ones —
+// they still need a human Approve before anything happens to them.
+const INTERACTIVE_PROJECT_PROCEDURES = {
+  'proj-sat004': { performance: ['component_drive', 'efficiency_mapping', 'power_consumption'], endurance: ['endurance', 'lifetime'] },
+  'proj-sat005': { performance: ['fc_efficiency', 'fc_load_cycling', 'fc_thermal'], endurance: [] }, // fuel cell has no endurance-category procedure in the catalog yet
+  'proj-sat006': { performance: ['thrust_characterization', 'ignition_reliability', 'ct_thermal_performance', 'fuel_consumption'], endurance: ['ct_lifetime'] },
+  'proj-sat007': { performance: ['thermal_cycling', 'extreme_temp_operation', 'thermal_vacuum'], endurance: ['thermal_endurance'] },
+};
+
+function generateRequestsForOneDay(state, day) {
+  const activeProjects = state.projects.filter((p) => p.status === 'active');
+  if (activeProjects.length === 0) return state;
+
+  const countSeed = hashStringToUnitInterval(`incoming-count:${day}`);
+  const count = 2 + Math.floor(countSeed * 5); // 2-6 inclusive
+
+  let next = state;
+  let events = [];
+
+  for (let i = 0; i < count; i++) {
+    const pickSeed = hashStringToUnitInterval(`incoming-pick:${day}:${i}`);
+    const project = activeProjects[Math.floor(pickSeed * activeProjects.length) % activeProjects.length];
+    const projectDuts = next.duts.filter((d) => d.projectId === project.id);
+    if (projectDuts.length === 0) continue;
+
+    const dutSeed = hashStringToUnitInterval(`incoming-dut:${day}:${i}`);
+    const dut = projectDuts[Math.floor(dutSeed * projectDuts.length) % projectDuts.length];
+
+    const procedures = INTERACTIVE_PROJECT_PROCEDURES[project.id];
+    if (!procedures) continue;
+
+    const categorySeed = hashStringToUnitInterval(`incoming-category:${day}:${i}`);
+    const useEndurance = categorySeed < 0.2 && procedures.endurance.length > 0; // ~20% endurance
+    const pool = useEndurance ? procedures.endurance : procedures.performance;
+    if (pool.length === 0) continue;
+
+    const procSeed = hashStringToUnitInterval(`incoming-proc:${day}:${i}`);
+    const procedure = pool[Math.floor(procSeed * pool.length) % pool.length];
+
+    const prioritySeed = hashStringToUnitInterval(`incoming-priority:${day}:${i}`);
+    const priority = prioritySeed < 0.15 ? 'high' : prioritySeed < 0.75 ? 'normal' : 'low';
+
+    const dueSeed = hashStringToUnitInterval(`incoming-due:${day}:${i}`);
+    const leadDays = useEndurance ? 35 + Math.floor(dueSeed * 21) : 7 + Math.floor(dueSeed * 14); // endurance jobs get a longer lead time
+    const requestedCompletionDay = day + leadDays;
+
+    const testRequest = {
+      id: nextId('tr'),
+      projectId: project.id,
+      dutId: dut.id,
+      procedure,
+      priority,
+      requestedCompletionDay,
+      status: 'submitted',
+      assignedBenchId: null,
+      submittedOnDay: day,
+    };
+
+    next = { ...next, testRequests: [...next.testRequests, testRequest] };
+    events.push({ message: `New test request ${testRequest.id.toUpperCase()} received: ${dut.name} / ${PROCEDURES[procedure]?.name || procedure}`, relatedEntityId: testRequest.id });
+  }
+
+  for (const evt of events) {
+    next = addEvent(next, evt.message, evt.relatedEntityId, 'info');
+  }
   return next;
 }
 
@@ -303,6 +419,7 @@ function submitTestRequest(state, action) {
     requestedCompletionDay: action.requestedCompletionDay,
     status: 'submitted',
     assignedBenchId: null,
+    submittedOnDay: state.simClock.day,
   };
   const withRequest = { ...state, testRequests: [...state.testRequests, newRequest] };
   return addEvent(withRequest, `Test request ${newRequest.id.toUpperCase()} submitted`, newRequest.id, 'info');

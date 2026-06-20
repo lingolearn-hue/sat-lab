@@ -112,6 +112,7 @@ export const TEST_REQUEST_STATUS_LABELS = {
   review: 'Review',
   completed: 'Completed',
   archived: 'Archived',
+  expired: 'Expired',
 };
 
 // ---- Finance ----

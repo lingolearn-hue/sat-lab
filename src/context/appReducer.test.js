@@ -411,6 +411,103 @@ describe('appReducer — maintenance, calibration, consumables', () => {
   });
 });
 
+describe('appReducer — automatic test request arrival', () => {
+  it('generates between 2 and 6 new requests per sim-day crossed', () => {
+    const state = freshState();
+    const before = state.testRequests.length;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 }); // exactly 1 day
+    const generated = next.testRequests.length - before;
+    expect(generated).toBeGreaterThanOrEqual(2);
+    expect(generated).toBeLessThanOrEqual(6);
+  });
+
+  it('is deterministic — the same starting state always generates the same batch of requests', () => {
+    const stateA = freshState();
+    const nextA = appReducer(stateA, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 });
+    const stateB = freshState();
+    const nextB = appReducer(stateB, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 });
+
+    const contentA = nextA.testRequests.slice(stateA.testRequests.length).map((tr) => ({ ...tr, id: undefined }));
+    const contentB = nextB.testRequests.slice(stateB.testRequests.length).map((tr) => ({ ...tr, id: undefined }));
+    expect(contentA).toEqual(contentB);
+  });
+
+  it('every generated request starts as "submitted" with a real project/DUT/procedure combination', () => {
+    const state = freshState();
+    const before = state.testRequests.length;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 });
+    const generated = next.testRequests.slice(before);
+
+    for (const tr of generated) {
+      expect(tr.status).toBe('submitted');
+      expect(next.projects.some((p) => p.id === tr.projectId)).toBe(true);
+      expect(next.duts.some((d) => d.id === tr.dutId && d.projectId === tr.projectId)).toBe(true);
+      expect(tr.submittedOnDay).toBeDefined();
+    }
+  });
+
+  it('generates requests once per day crossed, not once per tick, for a multi-day tick', () => {
+    const state = freshState();
+    const before = state.testRequests.length;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 5 }); // 5 days in one tick
+    const generated = next.testRequests.length - before;
+    // 5 days at 2-6/day should land between 10 and 30, not collapse to a single day's worth.
+    expect(generated).toBeGreaterThanOrEqual(10);
+    expect(generated).toBeLessThanOrEqual(30);
+  });
+});
+
+describe('appReducer — test request expiry and auto-archive', () => {
+  it('a submitted request expires after TEST_REQUEST_EXPIRY_DAYS without being scheduled', () => {
+    const state = freshState();
+    // tr-0403 is seeded as submitted on day 13; "now" is day 14.
+    const tr = state.testRequests.find((t) => t.id === 'tr-0403');
+    expect(tr.status).toBe('submitted');
+
+    const justUnder = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 2 }); // day 16, 3 days old
+    expect(justUnder.testRequests.find((t) => t.id === 'tr-0403').status).toBe('submitted');
+
+    const atThreshold = appReducer(justUnder, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 }); // day 17, 4 days old
+    expect(atThreshold.testRequests.find((t) => t.id === 'tr-0403').status).toBe('expired');
+  });
+
+  it('an approved request is also subject to expiry, not just submitted ones', () => {
+    const state = freshState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0303'); // seeded as approved on day 13
+    expect(tr.status).toBe('approved');
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 4 }); // day 18, 5 days old
+    expect(next.testRequests.find((t) => t.id === 'tr-0303').status).toBe('expired');
+  });
+
+  it('a scheduled (or later) request is never expired, even if it sits for a long time', () => {
+    const state = freshState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0233'); // seeded as scheduled
+    expect(tr.status).toBe('scheduled');
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 30 });
+    expect(next.testRequests.find((t) => t.id === 'tr-0233').status).toBe('scheduled');
+  });
+
+  it('an expired request is auto-archived after EXPIRED_TO_ARCHIVED_DAYS, not deleted', () => {
+    let state = freshState();
+    state = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 3 }); // day 17: tr-0403 expires
+    expect(state.testRequests.find((t) => t.id === 'tr-0403').status).toBe('expired');
+
+    const stillExpired = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 6 }); // day 23, 6 days past expiry
+    expect(stillExpired.testRequests.find((t) => t.id === 'tr-0403').status).toBe('expired');
+
+    const archived = appReducer(stillExpired, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 2 }); // day 25, 8 days past expiry
+    const archivedRequest = archived.testRequests.find((t) => t.id === 'tr-0403');
+    expect(archivedRequest.status).toBe('archived');
+    expect(archivedRequest).toBeDefined(); // confirms it's relabeled, not removed from the array
+  });
+
+  it('an expiry event and an archive event both appear in the event feed', () => {
+    let state = freshState();
+    state = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 3 }); // day 17
+    expect(state.eventFeed.some((e) => e.message.includes('TR-0403') && e.message.includes('expired'))).toBe(true);
+  });
+});
+
 describe('appReducer — daily upkeep and snapshots', () => {
   it('crossing a day boundary charges upkeep once per day elapsed', () => {
     const state = freshState();

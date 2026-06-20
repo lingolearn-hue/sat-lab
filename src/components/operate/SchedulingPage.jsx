@@ -26,6 +26,7 @@ const STATUS_BADGE = {
   completed: 'bg-op-teal-glow text-op-teal-dim',
   draft: 'bg-[rgba(154,161,171,0.10)] text-op-text-faint',
   archived: 'bg-[rgba(154,161,171,0.10)] text-op-text-faint',
+  expired: 'bg-[rgba(192,59,59,0.10)] text-op-red',
 };
 
 // v1: these EPC rooms have a full test-request workflow wired up.
@@ -202,6 +203,9 @@ export function getSchedulingAction(state, testRequest, execution, timing, bench
   }
   if (testRequest.status === 'completed') {
     return { kind: 'none' };
+  }
+  if (testRequest.status === 'expired') {
+    return { kind: 'blocked', reason: 'Expired — not actioned in time', severity: 'warning' };
   }
   return { kind: 'none' };
 }
