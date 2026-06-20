@@ -6,18 +6,22 @@ const NAV_ITEMS = [
   { id: 'laboratories', label: 'Laboratories', icon: '⌂' },
   { id: 'statistics', label: 'Statistics', icon: '◔' },
   { id: 'assets', label: 'Assets', icon: '◫' },
+  { id: 'consumables', label: 'Consumables', icon: '◇' },
   { id: 'personnel', label: 'Personnel', icon: '◍' },
   { id: 'finance', label: 'Finance', icon: '$' },
+  { id: 'auditlog', label: 'Audit Log', icon: '▤' },
 ];
 
 // Per spec section 4: roles see different primary screens.
 // Operator: My Tasks, Running Tests, Equipment Status (combined into "Operations" for v1).
 // Test Engineer: Projects, Test Requests, DUT Management, Reports.
 // Lab Manager: Scheduler, Resource Dashboard, Laboratory Overview.
+// Audit Log is visible to every role on the principle that the user who takes an
+// action is responsible for it being on record — not gated to "management only".
 export const ROLE_NAV_IDS = {
-  operator: ['dashboard', 'operations', 'assets'],
-  test_engineer: ['dashboard', 'projects', 'scheduling', 'statistics', 'assets'],
-  lab_manager: ['dashboard', 'scheduling', 'laboratories', 'statistics', 'personnel', 'finance'],
+  operator: ['dashboard', 'operations', 'assets', 'consumables', 'auditlog'],
+  test_engineer: ['dashboard', 'projects', 'scheduling', 'statistics', 'assets', 'auditlog'],
+  lab_manager: ['dashboard', 'scheduling', 'laboratories', 'statistics', 'consumables', 'personnel', 'finance', 'auditlog'],
 };
 
 export const ROLE_DEFAULT_PAGE = {

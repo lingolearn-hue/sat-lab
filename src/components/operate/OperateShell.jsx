@@ -7,7 +7,9 @@ import ProjectsPage from './ProjectsPage.jsx';
 import LaboratoriesPage from './LaboratoriesPage.jsx';
 import StatisticsPage from './StatisticsPage.jsx';
 import AssetsPage from './AssetsPage.jsx';
+import ConsumablesPage from './ConsumablesPage.jsx';
 import FinancePage from './FinancePage.jsx';
+import AuditLogPage from './AuditLogPage.jsx';
 import StubPage from './StubPage.jsx';
 import { useAppState } from '../../context/AppContext.jsx';
 import { getBenchesForRoom } from '../../data/selectors.js';
@@ -47,7 +49,9 @@ export default function OperateShell() {
         {activePage === 'laboratories' && <LaboratoriesPage />}
         {activePage === 'statistics' && <StatisticsPage />}
         {activePage === 'assets' && <AssetsPage />}
+        {activePage === 'consumables' && <ConsumablesPage />}
         {activePage === 'finance' && <FinancePage />}
+        {activePage === 'auditlog' && <AuditLogPage />}
         {activePage === 'personnel' && <StubPage title="Personnel" note="Staffing and qualifications — planned for a future iteration." />}
       </div>
     </div>

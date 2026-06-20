@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 6** — Buildings B (Chemical Propulsion Center) and C (Safety and Qualification Center) added: 9 new rooms, 2 newly interactive (Chemical Thruster Laboratory, Thermal Qualification Laboratory), facility-wide views now span all 15 rooms across 3 buildings
+**Version 7** — Immutable audit log (every dispatched action, CSV/JSON export), consumables/inventory tracking (4 propellant/gas types, automatic consumption on test completion, manual reorder)
 
 ## What this is
 
@@ -41,6 +41,8 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 - Report generation: per-test and per-project PDF reports with templated (non-random) narrative text, inline overlay + browser Print + downloadable PDF (jsPDF)
 - Statistics page: facility-wide KPIs, utilization trend over sim-days, daily throughput, live utilization-by-laboratory comparison across all 15 rooms (click to drill into any room's own trend), pass/fail breakdown, throughput-by-procedure
 - Channel-level fuel cell visualization: Fuel Cell Stack Benches render every individual channel (96 at Tier 1, 192 at Tier 2) as a colored square grouped in sixes, derived deterministically from the bench's real status/maintenance state
+- **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
+- **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Scheduling page now spans all 4 interactive rooms** across all 3 buildings — grouped bench status, a Laboratory column, facility-wide KPIs
 - **Projects page now spans all 4 active projects**: SAT-004 (Ion Drive), SAT-005 (Fuel Cell Power), SAT-006 (Chemical Thruster), SAT-007 (Thermal Qualification)
 - Laboratories page, Assets page, Finance page — all real, not stubs, all spanning all 3 buildings (Personnel is the only remaining stub)
@@ -60,11 +62,11 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 | Role-based access | ✅ (3 of the spec's 5 roles) |
 | Statistics / analytics / trend dashboards | ✅ |
 | Financial/billing integration | ✅ |
-| Multi-site / multi-building support | ✅ (added this release) |
+| Multi-site / multi-building support | ✅ (added v6) |
+| Audit trail | ✅ (added v7) — immutable, append-only, every dispatched action, CSV/JSON export. No automatic signatures/stamps by design — see Known Gaps. |
+| Inventory/consumables tracking | ✅ (added v7) — 4 tracked consumables, automatic consumption on test completion, manual reorder, real Finance category |
 | Staff/personnel management | ❌ not implemented |
-| Audit trail | ⚠️ partial (event feed logs actions with timestamps, but it's a rolling 100-item log, not an immutable/exportable audit trail) |
-| Document/data integrity (e-signatures, 21 CFR Part 11-style controls) | ❌ out of scope for a simulation |
-| Inventory/consumables tracking | ❌ not implemented |
+| Document/data integrity (e-signatures, 21 CFR Part 11-style controls) | ❌ deliberately out of scope — see note below |
 | Mobile/responsive access | ❌ not implemented (spec calls for this explicitly) |
 | Instrument data interfacing | ❌ not applicable (no real instruments) |
 
@@ -80,25 +82,29 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 8. **Bundle size**: now over 1MB after jsPDF + recharts. Code-splitting still on the backlog.
 9. **Revenue billing rate ($145/hour of bench cycle time) is a simple flat placeholder.**
 10. **No randomness in test results** (deferred by design).
-11. No automated test suite — verification has been manual/scripted browser interaction during development.
-12. **Print stylesheet for reports is written but not yet visually confirmed** in a real print preview (still parked).
+11. **The Audit Log records mechanism, not compliance.** It's an honest implementation of "append-only action history with export," which is the real mechanism behind audit trails. It deliberately does NOT include e-signatures, user authentication, or any "this record is regulator-compliant" claim — those would misrepresent what a browser-based mockup can actually guarantee. Responsibility for what's on record rests with whoever took the action.
+12. **Consumable stock changes aren't retroactively reflected in past Daily Snapshots** — Statistics trend history captures utilization/throughput only, not inventory levels over time.
+13. No automated test suite — verification has been manual/scripted browser interaction during development.
+14. **Print stylesheet for reports is written but not yet visually confirmed** in a real print preview (still parked).
 
 ## Project structure
 
 ```
 src/
-  data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts — now covering all 4 interactive rooms),
-               seed.js (initial state — 3 buildings, 15 rooms, 4 projects),
+  data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types),
+               seed.js (initial state — 3 buildings, 15 rooms, 4 projects, consumables stock),
                selectors.js (derived data + finance + maintenance + channel + statistics helpers),
                reports.js (report content builder), reportPdf.js (jsPDF export)
-  engine/      testResults.js (deterministic scoring — now covering chemical thruster + thermal qualification procedures)
-  context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions, daily snapshots),
+  engine/      testResults.js (deterministic scoring — covers all 4 interactive rooms' procedures)
+  context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions,
+               daily snapshots, consumable consumption/reorder, and the audit-log wrapper around every dispatch),
                AppContext.jsx (provider, persistence, clock)
   components/
     shared/    TopBar.jsx
     operate/   SideNav (role-gated, 3 roles), DashboardPage, OperationsPage, ProjectsPage (4 projects),
                SchedulingPage (4-room facility-wide), LaboratoriesPage (15 rooms, grouped by building),
-               StatisticsPage, AssetsPage, FinancePage, ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
+               StatisticsPage, AssetsPage, ConsumablesPage (new), FinancePage, AuditLogPage (new),
+               ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
     build/     BuildShell (room navigation across 3 buildings), BenchTile (channel map for fuel cell benches),
                BuildPanel (room-scoped catalog), FacilityMap (all 15 rooms grouped by building, clickable)
 ```

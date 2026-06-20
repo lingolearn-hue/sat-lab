@@ -13,6 +13,9 @@ const CATEGORY_LABELS = {
   room_expansion: 'Room Expansions',
   facility_upkeep: 'Facility Upkeep',
   test_billing: 'Test Billing',
+  consumables: 'Consumables',
+  maintenance: 'Maintenance',
+  calibration: 'Calibration',
 };
 
 export default function FinancePage() {

@@ -8,6 +8,7 @@ import {
   CALIBRATION_DURATION_HOURS,
   MAINTENANCE_COST,
   CALIBRATION_COST,
+  CONSUMABLE_TYPES,
 } from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
 
@@ -17,13 +18,96 @@ function nextId(prefix) {
   return `${prefix}-${idCounter}`;
 }
 
+// Action types that don't represent a discrete user/system "action" worth an audit
+// entry on their own — TICK_CLOCK fires every second while the sim runs. Anything
+// meaningful that happens *during* a tick (wear crossing a threshold, daily upkeep,
+// daily snapshot) is logged separately, at the point it happens, with its own entry.
+const AUDIT_EXCLUDED_ACTIONS = new Set(['TICK_CLOCK', 'LOAD_STATE']);
+
+// Public entry point: runs the real reducer, then appends one immutable audit
+// entry summarizing the dispatched action — who (role), what, when (sim + real time).
+// The audit log is append-only: nothing in appendAuditEntry ever mutates or removes
+// an existing entry, only adds. Capped by AUDIT_LOG_MAX_ENTRIES to bound storage,
+// per the agreed "limited by app storage" constraint — this is a practical limit,
+// not a deliberate truncation of history for any other reason.
 export function appReducer(state, action) {
+  const prevState = state;
+  const nextState = coreReducer(state, action);
+
+  if (nextState === prevState || AUDIT_EXCLUDED_ACTIONS.has(action.type)) {
+    return nextState;
+  }
+
+  return appendAuditEntry(nextState, prevState, action);
+}
+
+const AUDIT_LOG_MAX_ENTRIES = 2000;
+
+function appendAuditEntry(state, prevState, action) {
+  const entry = {
+    id: nextId('audit'),
+    seq: (state.auditLog?.length || 0) + 1,
+    actionType: action.type,
+    role: state.currentRole,
+    simDay: state.simClock.day,
+    simHour: state.simClock.hour,
+    simMinute: state.simClock.minute,
+    realTimestamp: new Date().toISOString(),
+    summary: summarizeAction(action, prevState, state),
+  };
+
+  const auditLog = [...(state.auditLog || []), entry];
+  const trimmed = auditLog.length > AUDIT_LOG_MAX_ENTRIES ? auditLog.slice(auditLog.length - AUDIT_LOG_MAX_ENTRIES) : auditLog;
+
+  return { ...state, auditLog: trimmed };
+}
+
+// Human-readable one-line summary per action type, built from the action payload —
+// not from diffing the whole state tree, which would be noisy and harder to read.
+function summarizeAction(action, prevState, nextState) {
+  switch (action.type) {
+    case 'SET_ROLE':
+      return `Role switched: ${prevState.currentRole} → ${action.role}`;
+    case 'SET_CLOCK_SPEED':
+      return `Sim clock speed changed to ×${action.speedMultiplier}`;
+    case 'TOGGLE_CLOCK_RUNNING':
+      return `Sim clock ${nextState.simClock.running ? 'resumed' : 'paused'}`;
+    case 'SUBMIT_TEST_REQUEST':
+      return `Test request submitted: ${action.dutId} / ${action.procedure}`;
+    case 'APPROVE_TEST_REQUEST':
+      return `Test request ${action.testRequestId.toUpperCase()} approved`;
+    case 'SCHEDULE_TEST_REQUEST':
+      return `Test request ${action.testRequestId.toUpperCase()} scheduled on ${action.benchId.toUpperCase()}`;
+    case 'ADVANCE_EXECUTION_PHASE':
+      return `Execution ${action.executionId} phase advanced`;
+    case 'ARCHIVE_TEST_REQUEST':
+      return `Test request ${action.testRequestId.toUpperCase()} archived`;
+    case 'INSTALL_BENCH':
+      return `Bench installed: ${action.benchTypeId} in ${action.roomId}`;
+    case 'UPGRADE_BENCH':
+      return `Bench upgraded: ${action.benchId.toUpperCase()}`;
+    case 'EXPAND_ROOM':
+      return `Room expanded: ${action.roomId}`;
+    case 'PERFORM_MAINTENANCE':
+      return `Maintenance performed: ${action.benchId.toUpperCase()}`;
+    case 'PERFORM_CALIBRATION':
+      return `Calibration performed: ${action.benchId.toUpperCase()}`;
+    case 'REORDER_CONSUMABLE':
+      return `Consumable reordered: ${action.consumableId}`;
+    case 'ADD_EVENT':
+      return action.message;
+    default:
+      return action.type;
+  }
+}
+
+function coreReducer(state, action) {
   switch (action.type) {
     case 'SET_ROLE':
       return { ...state, currentRole: action.role };
 
     case 'LOAD_STATE':
-      return { dailySnapshots: [], ...action.state };
+      return { dailySnapshots: [], auditLog: [], consumables: [], ...action.state };
 
     case 'TICK_CLOCK':
       return tickClock(state, action.simMinutesElapsed);
@@ -66,6 +150,9 @@ export function appReducer(state, action) {
 
     case 'PERFORM_CALIBRATION':
       return performCalibration(state, action);
+
+    case 'REORDER_CONSUMABLE':
+      return reorderConsumable(state, action);
 
     default:
       return state;
@@ -320,6 +407,7 @@ function advanceExecutionPhase(state, action) {
 
   if (nextPhase === 'completed') {
     next = chargeTestRevenue(next, execution, bench);
+    next = consumeForExecution(next, bench);
   }
 
   return addEvent(
@@ -353,6 +441,72 @@ function chargeTestRevenue(state, execution, bench) {
     facility: { ...state.facility, budget: state.facility.budget + revenue },
     transactions: [...state.transactions, transaction],
   };
+}
+
+// ---- Consumables ----
+
+function consumeForExecution(state, bench) {
+  if (!bench) return state;
+  const applicable = Object.values(CONSUMABLE_TYPES).filter((c) => c.usedByRoomIds.includes(bench.roomId));
+  if (applicable.length === 0) return state;
+
+  let next = state;
+  for (const consumableType of applicable) {
+    next = consumeStock(next, consumableType.id, consumableType.consumptionPerTest);
+  }
+  return next;
+}
+
+function consumeStock(state, consumableId, amount) {
+  const consumables = state.consumables.map((c) =>
+    c.id === consumableId ? { ...c, stock: Math.max(0, c.stock - amount) } : c
+  );
+
+  const consumableType = CONSUMABLE_TYPES[consumableId];
+  const updated = consumables.find((c) => c.id === consumableId);
+  let next = { ...state, consumables };
+
+  // Fire a low-stock warning once, at the moment stock crosses the threshold
+  // going downward — not on every tick while it stays low.
+  const before = state.consumables.find((c) => c.id === consumableId);
+  if (before && before.stock > consumableType.lowStockThreshold && updated.stock <= consumableType.lowStockThreshold) {
+    next = addEvent(
+      next,
+      `${consumableType.name} stock low (${updated.stock} ${consumableType.unit} remaining) — reorder recommended`,
+      consumableId,
+      'warning'
+    );
+  }
+
+  return next;
+}
+
+function reorderConsumable(state, action) {
+  const { consumableId } = action;
+  const consumableType = CONSUMABLE_TYPES[consumableId];
+  if (!consumableType) return state;
+  if (state.facility.budget < consumableType.reorderCost) return state;
+
+  const consumables = state.consumables.map((c) =>
+    c.id === consumableId ? { ...c, stock: c.stock + consumableType.reorderQuantity } : c
+  );
+
+  const transaction = {
+    id: nextId('txn'),
+    simDay: state.simClock.day,
+    type: 'opex',
+    category: 'consumables',
+    amount: -consumableType.reorderCost,
+    description: `Reordered ${consumableType.reorderQuantity} ${consumableType.unit} of ${consumableType.name}`,
+  };
+
+  const next = {
+    ...state,
+    consumables,
+    facility: { ...state.facility, budget: state.facility.budget - consumableType.reorderCost },
+    transactions: [...state.transactions, transaction],
+  };
+  return addEvent(next, `${consumableType.name} restocked (+${consumableType.reorderQuantity} ${consumableType.unit})`, consumableId, 'success');
 }
 
 function capitalize(s) {

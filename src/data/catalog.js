@@ -262,3 +262,52 @@ export const MAINTENANCE_DURATION_HOURS = 3; // sim-hours an Operator's maintena
 export const CALIBRATION_DURATION_HOURS = 2;
 export const MAINTENANCE_COST = 1200; // flat opex cost per maintenance action
 export const CALIBRATION_COST = 800;
+
+// ---- Consumables ----
+// A handful of shared types used across several interactive rooms, plus two
+// room-specific propellants. Consumed automatically per completed test execution
+// (see appReducer.consumeForExecution); reordering is a manual Operator/Lab Manager
+// action that costs money and restocks.
+
+export const CONSUMABLE_TYPES = {
+  calibration_gas: {
+    id: 'calibration_gas',
+    name: 'Calibration Gas',
+    unit: 'canisters',
+    usedByRoomIds: ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'],
+    consumptionPerTest: 1,
+    reorderQuantity: 20,
+    reorderCost: 3400,
+    lowStockThreshold: 5,
+  },
+  coolant: {
+    id: 'coolant',
+    name: 'Coolant',
+    unit: 'liters',
+    usedByRoomIds: ['room-fcpl', 'room-ctl', 'room-tql'],
+    consumptionPerTest: 4,
+    reorderQuantity: 100,
+    reorderCost: 2100,
+    lowStockThreshold: 20,
+  },
+  xenon_propellant: {
+    id: 'xenon_propellant',
+    name: 'Xenon Propellant',
+    unit: 'kg',
+    usedByRoomIds: ['room-ipl'],
+    consumptionPerTest: 2,
+    reorderQuantity: 50,
+    reorderCost: 8800,
+    lowStockThreshold: 10,
+  },
+  hydrazine_propellant: {
+    id: 'hydrazine_propellant',
+    name: 'Hydrazine Propellant',
+    unit: 'kg',
+    usedByRoomIds: ['room-ctl'],
+    consumptionPerTest: 6,
+    reorderQuantity: 60,
+    reorderCost: 6200,
+    lowStockThreshold: 15,
+  },
+};

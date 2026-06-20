@@ -16,6 +16,13 @@ export function createInitialState() {
     },
     currentRole: 'test_engineer', // 'operator' | 'test_engineer' | 'lab_manager'
     dailySnapshots: [], // populated once per sim-day rollover; see appReducer.recordDailySnapshot
+    auditLog: [], // immutable, append-only; see appReducer.appendAuditEntry. Capped at AUDIT_LOG_MAX_ENTRIES.
+    consumables: [
+      { id: 'calibration_gas', stock: 18 },
+      { id: 'coolant', stock: 65 },
+      { id: 'xenon_propellant', stock: 22 },
+      { id: 'hydrazine_propellant', stock: 8 }, // intentionally low, near the reorder threshold (15)
+    ],
     buildings: [
       { id: 'bldg-a', name: 'Electric Propulsion Test Center', code: 'A' },
       { id: 'bldg-b', name: 'Chemical Propulsion Center', code: 'B' },
