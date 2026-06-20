@@ -5,6 +5,7 @@ import OperationsPage from './OperationsPage.jsx';
 import SchedulingPage from './SchedulingPage.jsx';
 import ProjectsPage from './ProjectsPage.jsx';
 import LaboratoriesPage from './LaboratoriesPage.jsx';
+import StatisticsPage from './StatisticsPage.jsx';
 import AssetsPage from './AssetsPage.jsx';
 import FinancePage from './FinancePage.jsx';
 import StubPage from './StubPage.jsx';
@@ -44,6 +45,7 @@ export default function OperateShell() {
         {activePage === 'scheduling' && <SchedulingPage />}
         {activePage === 'projects' && <ProjectsPage />}
         {activePage === 'laboratories' && <LaboratoriesPage />}
+        {activePage === 'statistics' && <StatisticsPage />}
         {activePage === 'assets' && <AssetsPage />}
         {activePage === 'finance' && <FinancePage />}
         {activePage === 'personnel' && <StubPage title="Personnel" note="Staffing and qualifications — planned for a future iteration." />}

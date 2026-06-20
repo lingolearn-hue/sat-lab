@@ -23,7 +23,7 @@ export function appReducer(state, action) {
       return { ...state, currentRole: action.role };
 
     case 'LOAD_STATE':
-      return action.state;
+      return { dailySnapshots: [], ...action.state };
 
     case 'TICK_CLOCK':
       return tickClock(state, action.simMinutesElapsed);
@@ -91,9 +91,43 @@ function tickClock(state, simMinutesElapsed) {
   const daysPassed = day - state.simClock.day;
   if (daysPassed > 0) {
     next = chargeDailyUpkeep(next, daysPassed);
+    next = recordDailySnapshot(next);
   }
 
   return next;
+}
+
+// One snapshot per sim-day, capturing facility- and room-level metrics at the
+// moment the day rolls over. This is the only history mechanism in the app —
+// nothing else retroactively reconstructs past state, so the Statistics screen
+// is only as deep as how much sim-time has actually elapsed since this was added.
+function recordDailySnapshot(state) {
+  const roomSnapshots = state.rooms.map((room) => {
+    const benches = state.benches.filter((b) => b.roomId === room.id);
+    const runningCount = benches.filter((b) => b.status === 'running').length;
+    return {
+      roomId: room.id,
+      benchCount: benches.length,
+      runningCount,
+      utilizationPct: benches.length === 0 ? 0 : Math.round((runningCount / benches.length) * 100),
+    };
+  });
+
+  const completedToday = state.testRequests.filter(
+    (tr) => tr.status === 'completed'
+  ).length; // cumulative completed count at snapshot time; trend is computed from deltas between days
+
+  const snapshot = {
+    simDay: state.simClock.day,
+    budget: state.facility.budget,
+    totalBenches: state.benches.length,
+    totalRunning: state.benches.filter((b) => b.status === 'running').length,
+    cumulativeCompletedTests: completedToday,
+    rooms: roomSnapshots,
+  };
+
+  const dailySnapshots = [...(state.dailySnapshots || []), snapshot].slice(-90); // cap history to last 90 days
+  return { ...state, dailySnapshots };
 }
 
 function accrueBenchWear(state, hoursElapsed) {

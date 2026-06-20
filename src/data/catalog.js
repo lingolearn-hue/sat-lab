@@ -45,6 +45,7 @@ export const BENCH_TYPES = {
     baseCycleTimeHours: 10,
     maxTier: 2,
     upgradeCost: { 2: 11000 },
+    channelsByTier: { 1: 96, 2: 192 }, // channels grouped visually in 6s
   },
   solar_panel: {
     id: 'solar_panel',

@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { id: 'projects', label: 'Projects', icon: '▣' },
   { id: 'scheduling', label: 'Scheduling', icon: '▦' },
   { id: 'laboratories', label: 'Laboratories', icon: '⌂' },
+  { id: 'statistics', label: 'Statistics', icon: '◔' },
   { id: 'assets', label: 'Assets', icon: '◫' },
   { id: 'personnel', label: 'Personnel', icon: '◍' },
   { id: 'finance', label: 'Finance', icon: '$' },
@@ -15,8 +16,8 @@ const NAV_ITEMS = [
 // Lab Manager: Scheduler, Resource Dashboard, Laboratory Overview.
 export const ROLE_NAV_IDS = {
   operator: ['dashboard', 'operations', 'assets'],
-  test_engineer: ['dashboard', 'projects', 'scheduling', 'assets'],
-  lab_manager: ['dashboard', 'scheduling', 'laboratories', 'personnel', 'finance'],
+  test_engineer: ['dashboard', 'projects', 'scheduling', 'statistics', 'assets'],
+  lab_manager: ['dashboard', 'scheduling', 'laboratories', 'statistics', 'personnel', 'finance'],
 };
 
 export const ROLE_DEFAULT_PAGE = {

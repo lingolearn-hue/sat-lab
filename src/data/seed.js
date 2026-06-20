@@ -15,6 +15,7 @@ export function createInitialState() {
       running: true,
     },
     currentRole: 'test_engineer', // 'operator' | 'test_engineer' | 'lab_manager'
+    dailySnapshots: [], // populated once per sim-day rollover; see appReducer.recordDailySnapshot
     buildings: [
       { id: 'bldg-a', name: 'Electric Propulsion Test Center', code: 'A' },
     ],

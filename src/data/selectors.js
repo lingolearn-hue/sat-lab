@@ -169,3 +169,119 @@ export function getMaintenanceTasksForBenches(benches) {
     .map((bench) => ({ bench, maintenanceState: getMaintenanceState(bench), calibrationState: getCalibrationState(bench) }))
     .filter((t) => t.maintenanceState !== 'ok' || t.calibrationState !== 'ok' || t.bench.status === 'out_of_service');
 }
+
+// ---- Fuel cell channel map ----
+// Channels are individually tracked (not just an aggregate %) so the Build-mode
+// visualization can show real per-channel variation. Status is derived deterministically
+// from bench state + channel index — never random — consistent with the rest of the app.
+// Channels are visually grouped in sixes (a "group of 6" reads as one cell block).
+
+export function getChannelCount(bench, benchType) {
+  if (!benchType?.channelsByTier) return 0;
+  return benchType.channelsByTier[bench.tier] || benchType.channelsByTier[1] || 0;
+}
+
+export function getChannelStatuses(bench, benchType) {
+  const count = getChannelCount(bench, benchType);
+  if (count === 0) return [];
+
+  const maintenanceState = getMaintenanceState(bench);
+  const channels = [];
+
+  for (let i = 0; i < count; i++) {
+    channels.push(deriveChannelStatus(bench, i, count, maintenanceState));
+  }
+  return channels;
+}
+
+function deriveChannelStatus(bench, index, total, maintenanceState) {
+  if (bench.status === 'out_of_service') return 'fault';
+
+  if (bench.status === 'idle') {
+    // Idle benches keep a small number of channels in standby rather than fully dark,
+    // representing baseline monitoring circuitry — deterministic by index, not random.
+    return index % 11 === 0 ? 'standby' : 'offline';
+  }
+
+  // Running: most channels active. A maintenance-due bench shows a deterministic
+  // pocket of degraded channels proportional to how overdue it is, so the visual
+  // tells the same story the Operations page tells in numbers.
+  if (maintenanceState !== 'ok') {
+    const degradedFraction = maintenanceState === 'overdue' ? 0.22 : 0.08;
+    const degradedCount = Math.round(total * degradedFraction);
+    if (index < degradedCount) {
+      return index % 3 === 0 ? 'fault' : 'standby';
+    }
+  }
+
+  return 'active';
+}
+
+export const CHANNEL_GROUP_SIZE = 6;
+
+export function groupChannels(channelStatuses) {
+  const groups = [];
+  for (let i = 0; i < channelStatuses.length; i += CHANNEL_GROUP_SIZE) {
+    groups.push(channelStatuses.slice(i, i + CHANNEL_GROUP_SIZE));
+  }
+  return groups;
+}
+
+// ---- Statistics ----
+
+// Facility-wide utilization per day, plus daily throughput (tests completed that day,
+// derived from the cumulative counter via day-over-day delta).
+export function getFacilityUtilizationTrend(state) {
+  const snapshots = state.dailySnapshots || [];
+  return snapshots.map((s, i) => {
+    const prevCumulative = i > 0 ? snapshots[i - 1].cumulativeCompletedTests : 0;
+    return {
+      day: s.simDay,
+      utilizationPct: s.totalBenches === 0 ? 0 : Math.round((s.totalRunning / s.totalBenches) * 100),
+      testsCompletedThatDay: Math.max(0, s.cumulativeCompletedTests - prevCumulative),
+      budget: s.budget,
+    };
+  });
+}
+
+export function getRoomUtilizationTrend(state, roomId) {
+  const snapshots = state.dailySnapshots || [];
+  return snapshots
+    .map((s) => {
+      const room = s.rooms.find((r) => r.roomId === roomId);
+      if (!room) return null;
+      return { day: s.simDay, utilizationPct: room.utilizationPct, runningCount: room.runningCount, benchCount: room.benchCount };
+    })
+    .filter(Boolean);
+}
+
+// Current (live, not historical) utilization comparison across all rooms — used for
+// the facility overview's room-comparison chart, complementing the day-over-day trend.
+export function getCurrentUtilizationByRoom(state) {
+  return state.rooms.map((room) => ({
+    roomId: room.id,
+    name: room.name,
+    utilizationPct: getBenchUtilization(state, room.id),
+    benchCount: getBenchesForRoom(state, room.id).length,
+  }));
+}
+
+export function getPassFailStats(state) {
+  const completedExecutions = state.executions.filter((e) => e.phase === 'completed' && e.result);
+  const passed = completedExecutions.filter((e) => e.result.passed).length;
+  const failed = completedExecutions.length - passed;
+  return { passed, failed, total: completedExecutions.length };
+}
+
+export function getThroughputByProcedure(state) {
+  const completedExecutions = state.executions.filter((e) => e.phase === 'completed' && e.result);
+  const groups = {};
+  for (const exec of completedExecutions) {
+    const tr = state.testRequests.find((t) => t.id === exec.testRequestId);
+    const procId = tr?.procedure || exec.result.procedure;
+    if (!groups[procId]) groups[procId] = { procedureId: procId, count: 0, passed: 0 };
+    groups[procId].count += 1;
+    if (exec.result.passed) groups[procId].passed += 1;
+  }
+  return Object.values(groups);
+}
