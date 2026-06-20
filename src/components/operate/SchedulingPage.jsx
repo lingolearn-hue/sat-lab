@@ -8,6 +8,7 @@ import {
   getPhaseTimeRemaining,
   getQualificationForRoom,
   findAvailablePersonnel,
+  roomForProcedure,
   TEST_REQUEST_STATUS_LABELS,
 } from '../../data/selectors.js';
 import BenchStatusCard from './BenchStatusCard.jsx';
@@ -155,46 +156,43 @@ export default function SchedulingPage() {
   );
 }
 
-// Best-effort room lookup for requests that haven't been assigned a bench yet —
-// matches the procedure to whichever bench type in the catalog supports it.
-function roomForProcedure(state, procedureId) {
-  for (const room of state.rooms) {
-    const benches = getBenchesForRoom(state, room.id);
-    for (const bench of benches) {
-      // local import avoided; check via global catalog through bench type id convention
-      if (bench.benchTypeId && procedureSupportsBenchType(procedureId, bench.benchTypeId)) {
-        return room;
-      }
-    }
+// Pure decision logic for "what can be done with this test request right now" —
+// shared between desktop (RowAction renders this as a table-cell link/button) and
+// the mobile card view (renders the same decision as a full-width button).
+// Returns a descriptor, never JSX, so both UIs can style it however fits.
+export function getSchedulingAction(state, testRequest, execution, timing, benches) {
+  if (testRequest.status === 'submitted') {
+    return { kind: 'approve' };
   }
-  return null;
-}
-
-function procedureSupportsBenchType(procedureId, benchTypeId) {
-  const map = {
-    component_drive: ['component'],
-    endurance: ['endurance'],
-    lifetime: ['endurance'],
-    efficiency_mapping: ['perf_mapping'],
-    power_consumption: ['perf_mapping'],
-    fc_efficiency: ['fuel_cell_stack'],
-    fc_load_cycling: ['fuel_cell_stack'],
-    fc_thermal: ['fuel_cell_stack'],
-    thrust_characterization: ['chemical_thruster_stand'],
-    ignition_reliability: ['chemical_thruster_stand'],
-    ct_thermal_performance: ['chemical_thruster_stand'],
-    fuel_consumption: ['ct_endurance_stand'],
-    ct_lifetime: ['ct_endurance_stand'],
-    thermal_cycling: ['thermal_chamber'],
-    extreme_temp_operation: ['thermal_chamber'],
-    thermal_vacuum: ['thermal_chamber'],
-    thermal_endurance: ['thermal_endurance_chamber'],
-  };
-  return (map[procedureId] || []).includes(benchTypeId);
+  if (testRequest.status === 'approved') {
+    const idleBench = benches.find((b) => b.status === 'idle');
+    if (!idleBench) {
+      return { kind: 'blocked', reason: 'No bench free' };
+    }
+    const qualification = getQualificationForRoom(idleBench.roomId);
+    const person = qualification ? findAvailablePersonnel(state, qualification.id) : null;
+    if (qualification && !person) {
+      return { kind: 'blocked', reason: `No ${qualification.name} staff free`, severity: 'warning' };
+    }
+    return { kind: 'schedule', benchId: idleBench.id };
+  }
+  if (execution && ['scheduled', 'running', 'review'].includes(execution.phase) && timing?.isDue) {
+    const nextLabel = { scheduled: 'Start Test', running: 'Move to Review', review: 'Complete' }[execution.phase];
+    return { kind: 'advance', executionId: execution.id, label: nextLabel };
+  }
+  if (execution && timing && !timing.isDue) {
+    return { kind: 'waiting', reason: 'In progress…' };
+  }
+  if (testRequest.status === 'completed') {
+    return { kind: 'none' };
+  }
+  return { kind: 'none' };
 }
 
 function RowAction({ state, dispatch, testRequest, execution, timing, benches }) {
-  if (testRequest.status === 'submitted') {
+  const action = getSchedulingAction(state, testRequest, execution, timing, benches);
+
+  if (action.kind === 'approve') {
     return (
       <button
         onClick={() => dispatch({ type: 'APPROVE_TEST_REQUEST', testRequestId: testRequest.id })}
@@ -204,43 +202,33 @@ function RowAction({ state, dispatch, testRequest, execution, timing, benches })
       </button>
     );
   }
-  if (testRequest.status === 'approved') {
-    const idleBench = benches.find((b) => b.status === 'idle');
-    if (!idleBench) {
-      return <span className="text-[11.5px] text-op-text-faint">No bench free</span>;
-    }
-    const qualification = getQualificationForRoom(idleBench.roomId);
-    const person = qualification ? findAvailablePersonnel(state, qualification.id) : null;
-    if (qualification && !person) {
-      return <span className="text-[11.5px] text-op-orange">No {qualification.name} staff free</span>;
-    }
+  if (action.kind === 'blocked') {
+    return <span className={`text-[11.5px] ${action.severity === 'warning' ? 'text-op-orange' : 'text-op-text-faint'}`}>{action.reason}</span>;
+  }
+  if (action.kind === 'schedule') {
     return (
       <button
-        onClick={() => dispatch({ type: 'SCHEDULE_TEST_REQUEST', testRequestId: testRequest.id, benchId: idleBench.id })}
+        onClick={() => dispatch({ type: 'SCHEDULE_TEST_REQUEST', testRequestId: testRequest.id, benchId: action.benchId })}
         className="text-[12px] font-semibold text-op-teal-dim hover:underline"
       >
-        Schedule on {idleBench.id.toUpperCase()}
+        Schedule on {action.benchId.toUpperCase()}
       </button>
     );
   }
-  if (execution && ['scheduled', 'running', 'review'].includes(execution.phase) && timing?.isDue) {
-    const nextLabel = { scheduled: 'Start Test', running: 'Move to Review', review: 'Complete' }[execution.phase];
+  if (action.kind === 'advance') {
     return (
       <button
-        onClick={() => dispatch({ type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id })}
+        onClick={() => dispatch({ type: 'ADVANCE_EXECUTION_PHASE', executionId: action.executionId })}
         className="text-[12px] font-semibold text-op-orange hover:underline"
       >
-        {nextLabel} →
+        {action.label} →
       </button>
     );
   }
-  if (execution && timing && !timing.isDue) {
-    return <span className="text-[11.5px] text-op-text-faint">In progress…</span>;
+  if (action.kind === 'waiting') {
+    return <span className="text-[11.5px] text-op-text-faint">{action.reason}</span>;
   }
-  if (testRequest.status === 'completed') {
-    return <span className="text-[11.5px] text-op-text-faint">—</span>;
-  }
-  return null;
+  return <span className="text-[11.5px] text-op-text-faint">—</span>;
 }
 
 function Kpi({ label, value, delta, accentTeal, accentOrange }) {

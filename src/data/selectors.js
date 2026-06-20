@@ -317,3 +317,38 @@ export function findAvailablePersonnel(state, qualificationId) {
 export function getQualificationForRoom(roomId) {
   return Object.values(QUALIFICATION_DOMAINS).find((d) => d.roomId === roomId) || null;
 }
+
+// Best-effort room lookup for requests that haven't been assigned a bench yet —
+// matches the procedure to whichever bench type in the catalog supports it.
+// Shared by desktop and mobile Scheduling views so they never drift apart.
+const PROCEDURE_TO_BENCH_TYPES = {
+  component_drive: ['component'],
+  endurance: ['endurance'],
+  lifetime: ['endurance'],
+  efficiency_mapping: ['perf_mapping'],
+  power_consumption: ['perf_mapping'],
+  fc_efficiency: ['fuel_cell_stack'],
+  fc_load_cycling: ['fuel_cell_stack'],
+  fc_thermal: ['fuel_cell_stack'],
+  thrust_characterization: ['chemical_thruster_stand'],
+  ignition_reliability: ['chemical_thruster_stand'],
+  ct_thermal_performance: ['chemical_thruster_stand'],
+  fuel_consumption: ['ct_endurance_stand'],
+  ct_lifetime: ['ct_endurance_stand'],
+  thermal_cycling: ['thermal_chamber'],
+  extreme_temp_operation: ['thermal_chamber'],
+  thermal_vacuum: ['thermal_chamber'],
+  thermal_endurance: ['thermal_endurance_chamber'],
+};
+
+export function roomForProcedure(state, procedureId) {
+  for (const room of state.rooms) {
+    const benches = getBenchesForRoom(state, room.id);
+    for (const bench of benches) {
+      if (bench.benchTypeId && (PROCEDURE_TO_BENCH_TYPES[procedureId] || []).includes(bench.benchTypeId)) {
+        return room;
+      }
+    }
+  }
+  return null;
+}

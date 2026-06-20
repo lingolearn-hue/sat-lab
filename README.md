@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 10** — Zoom-fit view for small screens: the existing desktop layout auto-scales down to fit phone/tablet viewports without horizontal scrolling. This is an interim readability fix, not the real mobile redesign (see Known Gaps).
+**Version 11** — Real mobile redesign (first pass): manual Desktop/Mobile toggle in the top bar, bottom-tab navigation per role, purpose-built mobile layouts for Dashboard and Scheduling, scaled-desktop fallback (clearly labeled) for every other page.
 
 ## What this is
 
@@ -64,7 +64,8 @@ to the overview screen at any time.
 - Statistics page: facility-wide KPIs, utilization trend over sim-days, daily throughput, live utilization-by-laboratory comparison across all 16 rooms (click to drill into any room's own trend), pass/fail breakdown, throughput-by-procedure
 - Channel-level fuel cell visualization: Fuel Cell Stack Benches render every individual channel (96 at Tier 1, 192 at Tier 2) as a colored square grouped in sixes, derived deterministically from the bench's real status/maintenance state
 - **Building switcher** (new): Build mode now has a 2-tier navigation — a Facility Overview entry screen (5 compact cards: Floors A1/A2/A3 stacked under Building A, B and C beside them on desktop) and a building/floor detail screen showing every room on that floor at once. Prev/next arrows cycle through all 5 units in a fixed order with wraparound; "← Overview" returns to the entry screen at any time.
-- **Zoom-fit view for small screens** (new): below an 860px viewport width, the entire desktop layout auto-scales down via CSS transform to fit without horizontal scrolling — internal scroll containers, dropdowns, and click/tap interactions all confirmed working correctly through the transform. Text becomes small at phone width; that's the accepted tradeoff for this interim fix (see Known Gaps — this is explicitly not the real mobile redesign, which is separate, planned work).
+- **Desktop/Mobile toggle** (updated): the top bar now has an explicit Desktop/Mobile switch. Choosing **Desktop** always renders the complete desktop layout, auto-scaled via CSS transform if the screen is small (this is the old automatic zoom-fit, now an explicit choice rather than forced). Choosing **Mobile** switches to the real mobile layout below. The app still auto-picks Mobile on first load if the viewport is under 860px wide, but the person can switch either way at any time and the full desktop UI remains reachable and complete on any screen size.
+- **Real mobile layout** (new, first pass): bottom-tab navigation per role (Operator: 4 tabs, no overflow; Test Engineer and Laboratory Manager: 4 primary tabs + a "More" slide-up sheet for the rest), a condensed top bar, and purpose-built mobile-native layouts for **Dashboard** and **Scheduling** (stacked cards, large tap targets, native text size — not scaled-down desktop). Every other page renders via a scaled-desktop fallback, clearly labeled in-app ("Desktop layout, scaled to fit — a mobile-optimized version of this page is planned") so it's never ambiguous which pages have a real mobile treatment yet.
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
@@ -111,7 +112,9 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 12. **Consumable stock changes aren't retroactively reflected in past Daily Snapshots** — Statistics trend history captures utilization/throughput only, not inventory levels over time.
 13. No automated test suite — verification has been manual/scripted browser interaction during development.
 14. **Print stylesheet for reports is written but not yet visually confirmed** in a real print preview (still parked).
-15. **The zoom-fit view (small screens) is a stopgap, not real mobile support.** It scales the desktop layout down via CSS transform so it fits a phone viewport without horizontal scrolling — confirmed working for navigation, scrolling, dropdowns, and tap-to-act interactions — but text becomes genuinely small, nothing is restructured for touch, and tap targets aren't enlarged. The breakpoint is 860px viewport width. Real touch-gesture scrolling (as opposed to mouse-wheel/programmatic scroll, which were used to verify the scroll mechanics) hasn't been confirmed on an actual physical device.
+15. **Only Dashboard and Scheduling have a real mobile layout so far.** Every other page (Operations, Projects, Laboratories, Statistics, Assets, Consumables, Personnel, Finance, Audit Log) renders via a scaled-down desktop fallback in Mobile mode — usable, clearly labeled as such in-app, but not yet touch-optimized (small text, small tap targets). Build mode has no mobile treatment at all yet; switching to Mobile view only affects Operate mode.
+16. **Real touch-gesture scrolling hasn't been confirmed on an actual physical device.** Scroll mechanics were verified via mouse-wheel and programmatic scroll in this sandboxed testing environment; native touch-scroll on a real phone should work the same way (transforms don't interfere with it) but hasn't been directly tested.
+17. **The Desktop/Mobile toggle is per-session, not persisted.** Reloading the page re-evaluates the viewport width and may reset to the auto-picked mode rather than remembering an explicit manual choice.
 
 ## Project structure
 
@@ -120,7 +123,8 @@ src/
   data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types,
                qualification domains + capacity), seed.js (initial state — 3 buildings (5 building/floor units), 16 rooms, 4 projects,
                consumables stock, personnel roster), selectors.js (derived data + finance + maintenance +
-               channel + statistics + personnel-capacity helpers), reports.js (report content builder),
+               channel + statistics + personnel-capacity helpers, incl. roomForProcedure — shared by desktop
+               and mobile Scheduling views so they never drift apart), reports.js (report content builder),
                reportPdf.js (jsPDF export)
   engine/      testResults.js (deterministic scoring — covers all 4 interactive rooms' procedures)
   context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions,
@@ -128,11 +132,16 @@ src/
                and the audit-log wrapper around every dispatch),
                AppContext.jsx (provider, persistence, clock)
   components/
-    shared/    TopBar.jsx, ZoomFitWrapper.jsx (new — scales the app for small screens)
+    shared/    TopBar.jsx (now includes the Desktop/Mobile toggle), ZoomFitWrapper.jsx (scales Desktop mode on small screens)
+    mobile/    MobileShell (routes to mobile-ready pages or a scaled-desktop fallback), MobileTopBar, MobileTabBar
+               (per-role bottom tabs + More sheet), MobileDashboardPage, MobileSchedulingPage, mobileNavConfig.js
+               (per-role tab definitions, mobile-ready page registry)
     operate/   SideNav (role-gated, 3 roles), DashboardPage, OperationsPage, ProjectsPage (4 projects),
-               SchedulingPage (4-room facility-wide, personnel-aware), LaboratoriesPage (16 rooms, grouped by building/floor),
+               SchedulingPage (4-room facility-wide, personnel-aware; exports getSchedulingAction, a pure
+               decision function reused by MobileSchedulingPage so both UIs make identical scheduling
+               decisions from one place), LaboratoriesPage (16 rooms, grouped by building/floor),
                StatisticsPage, AssetsPage, ConsumablesPage, FinancePage, AuditLogPage,
-               PersonnelPage (new), ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
+               PersonnelPage, ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
     build/     BuildShell (overview/building-detail navigation, arrow cycling across 5 units),
                FacilityOverviewScreen (new — 5-card entry screen), BenchTile (channel map for fuel cell benches),
                BuildPanel (room-scoped catalog), FacilityMap (superseded, unused — see Planned Next)
@@ -140,7 +149,8 @@ src/
 
 ## Planned next (per latest discussion)
 
-- **Real mobile/responsive layout is still pending.** The zoom-fit view (this release) is explicitly a stopgap — it makes the existing desktop layout usable on a phone without redesigning anything, but text is small and nothing has been restructured for touch or narrow screens. A proper mobile redesign (touch-friendly controls, restructured nav, larger tap targets, readable text at native size) is separate, planned work.
+- **Extend the real mobile layout to more pages.** Operations and Projects are the next natural candidates (both are Operator/Test Engineer primary tabs); the goal is to eventually retire the scaled-desktop fallback for every page that gets real mobile use.
+- **Mobile treatment for Build mode** — not started. The CAD grid and channel-map visuals will need their own design thinking for touch/narrow screens, not just a scaled-down version.
 - Verify print stylesheet output together (parked)
 - Consider code-splitting to address bundle size
 - Possible: timer-gate maintenance/calibration actions

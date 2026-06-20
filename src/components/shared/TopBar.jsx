@@ -8,7 +8,7 @@ const ROLES = {
   lab_manager: { label: 'Laboratory Manager', initials: 'LM' },
 };
 
-export default function TopBar({ mode, onModeChange }) {
+export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const { exportToFile, importFromFile, resetToSeed } = useSaveLoad();
@@ -89,6 +89,17 @@ export default function TopBar({ mode, onModeChange }) {
       <div className={`text-[13px] font-semibold ${theme.chipBg} border ${theme.chipBorder} rounded-md px-3 py-1.5 ${isOperate ? 'text-op-text' : 'text-bd-orange'} tabular-nums`}>
         {formatMoney(state.facility.budget)}
       </div>
+
+      {onViewModeChange && (
+        <button
+          onClick={() => onViewModeChange(viewMode === 'mobile' ? 'desktop' : 'mobile')}
+          title={viewMode === 'mobile' ? 'Switch to Desktop view' : 'Switch to Mobile view'}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md ${theme.chipBg} border ${theme.chipBorder} ${theme.textDim} hover:${theme.text} text-[11px] font-semibold`}
+        >
+          <span>{viewMode === 'mobile' ? '▭' : '▯'}</span>
+          {viewMode === 'mobile' ? 'Mobile' : 'Desktop'}
+        </button>
+      )}
 
       <div className="relative">
         <button
