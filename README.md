@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 9** — Building switcher: Building A restructured into 3 floors (A1/A2/A3), new Facility Overview entry screen, prev/next arrow navigation between all 5 buildings/floors
+**Version 10** — Zoom-fit view for small screens: the existing desktop layout auto-scales down to fit phone/tablet viewports without horizontal scrolling. This is an interim readability fix, not the real mobile redesign (see Known Gaps).
 
 ## What this is
 
@@ -64,6 +64,7 @@ to the overview screen at any time.
 - Statistics page: facility-wide KPIs, utilization trend over sim-days, daily throughput, live utilization-by-laboratory comparison across all 16 rooms (click to drill into any room's own trend), pass/fail breakdown, throughput-by-procedure
 - Channel-level fuel cell visualization: Fuel Cell Stack Benches render every individual channel (96 at Tier 1, 192 at Tier 2) as a colored square grouped in sixes, derived deterministically from the bench's real status/maintenance state
 - **Building switcher** (new): Build mode now has a 2-tier navigation — a Facility Overview entry screen (5 compact cards: Floors A1/A2/A3 stacked under Building A, B and C beside them on desktop) and a building/floor detail screen showing every room on that floor at once. Prev/next arrows cycle through all 5 units in a fixed order with wraparound; "← Overview" returns to the entry screen at any time.
+- **Zoom-fit view for small screens** (new): below an 860px viewport width, the entire desktop layout auto-scales down via CSS transform to fit without horizontal scrolling — internal scroll containers, dropdowns, and click/tap interactions all confirmed working correctly through the transform. Text becomes small at phone width; that's the accepted tradeoff for this interim fix (see Known Gaps — this is explicitly not the real mobile redesign, which is separate, planned work).
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
@@ -110,6 +111,7 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 12. **Consumable stock changes aren't retroactively reflected in past Daily Snapshots** — Statistics trend history captures utilization/throughput only, not inventory levels over time.
 13. No automated test suite — verification has been manual/scripted browser interaction during development.
 14. **Print stylesheet for reports is written but not yet visually confirmed** in a real print preview (still parked).
+15. **The zoom-fit view (small screens) is a stopgap, not real mobile support.** It scales the desktop layout down via CSS transform so it fits a phone viewport without horizontal scrolling — confirmed working for navigation, scrolling, dropdowns, and tap-to-act interactions — but text becomes genuinely small, nothing is restructured for touch, and tap targets aren't enlarged. The breakpoint is 860px viewport width. Real touch-gesture scrolling (as opposed to mouse-wheel/programmatic scroll, which were used to verify the scroll mechanics) hasn't been confirmed on an actual physical device.
 
 ## Project structure
 
@@ -126,7 +128,7 @@ src/
                and the audit-log wrapper around every dispatch),
                AppContext.jsx (provider, persistence, clock)
   components/
-    shared/    TopBar.jsx
+    shared/    TopBar.jsx, ZoomFitWrapper.jsx (new — scales the app for small screens)
     operate/   SideNav (role-gated, 3 roles), DashboardPage, OperationsPage, ProjectsPage (4 projects),
                SchedulingPage (4-room facility-wide, personnel-aware), LaboratoriesPage (16 rooms, grouped by building/floor),
                StatisticsPage, AssetsPage, ConsumablesPage, FinancePage, AuditLogPage,
@@ -138,7 +140,7 @@ src/
 
 ## Planned next (per latest discussion)
 
-- Mobile/responsive layout — explicitly called for by the spec, zero work done so far
+- **Real mobile/responsive layout is still pending.** The zoom-fit view (this release) is explicitly a stopgap — it makes the existing desktop layout usable on a phone without redesigning anything, but text is small and nothing has been restructured for touch or narrow screens. A proper mobile redesign (touch-friendly controls, restructured nav, larger tap targets, readable text at native size) is separate, planned work.
 - Verify print stylesheet output together (parked)
 - Consider code-splitting to address bundle size
 - Possible: timer-gate maintenance/calibration actions
