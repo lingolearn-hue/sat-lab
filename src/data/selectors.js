@@ -334,23 +334,23 @@ export function getQualificationForRoom(roomId) {
 // matches the procedure to whichever bench type in the catalog supports it.
 // Shared by desktop and mobile Scheduling views so they never drift apart.
 const PROCEDURE_TO_BENCH_TYPES = {
-  component_drive: ['component'],
-  endurance: ['endurance'],
-  lifetime: ['endurance'],
-  efficiency_mapping: ['perf_mapping'],
-  power_consumption: ['perf_mapping'],
+  component_drive: ['ion_propulsion_bench'],
+  endurance: ['ion_propulsion_bench'],
+  lifetime: ['ion_propulsion_bench'],
+  efficiency_mapping: ['ion_propulsion_bench'],
+  power_consumption: ['ion_propulsion_bench'],
   fc_efficiency: ['fuel_cell_stack'],
   fc_load_cycling: ['fuel_cell_stack'],
   fc_thermal: ['fuel_cell_stack'],
-  thrust_characterization: ['chemical_thruster_stand'],
-  ignition_reliability: ['chemical_thruster_stand'],
-  ct_thermal_performance: ['chemical_thruster_stand'],
-  fuel_consumption: ['ct_endurance_stand'],
-  ct_lifetime: ['ct_endurance_stand'],
-  thermal_cycling: ['thermal_chamber'],
-  extreme_temp_operation: ['thermal_chamber'],
-  thermal_vacuum: ['thermal_chamber'],
-  thermal_endurance: ['thermal_endurance_chamber'],
+  thrust_characterization: ['chemical_thruster_bench'],
+  ignition_reliability: ['chemical_thruster_bench'],
+  ct_thermal_performance: ['chemical_thruster_bench'],
+  fuel_consumption: ['chemical_thruster_bench'],
+  ct_lifetime: ['chemical_thruster_bench'],
+  thermal_cycling: ['thermal_chamber_bench'],
+  extreme_temp_operation: ['thermal_chamber_bench'],
+  thermal_vacuum: ['thermal_chamber_bench'],
+  thermal_endurance: ['thermal_chamber_bench'],
 };
 
 export function roomForProcedure(state, procedureId) {

@@ -1,5 +1,6 @@
 import {
   BENCH_TYPES,
+  PROCEDURES,
   ROOM_EXPANSION_COST_BASE,
   EXECUTION_PHASE_DURATIONS_HOURS,
   MAINTENANCE_DUE_HOURS,
@@ -9,6 +10,8 @@ import {
   MAINTENANCE_COST,
   CALIBRATION_COST,
   CONSUMABLE_TYPES,
+  MIN_TIER_FOR_ENDURANCE,
+  getProcedureDurationHours,
 } from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
 import { getQualificationForRoom, findAvailablePersonnel } from '../data/selectors.js';
@@ -321,6 +324,15 @@ function scheduleTestRequest(state, action) {
   const bench = state.benches.find((b) => b.id === benchId);
   if (!bench || bench.status !== 'idle') return state;
 
+  // Endurance-category procedures require the bench to already be upgraded to
+  // MIN_TIER_FOR_ENDURANCE — this is the "the test run requires the update" rule:
+  // any tier can run performance-style procedures, but endurance access is gated
+  // on the physical bench having been upgraded first.
+  const procedureDef = PROCEDURES[testRequest.procedure];
+  if (procedureDef?.category === 'endurance' && bench.tier < MIN_TIER_FOR_ENDURANCE) {
+    return state;
+  }
+
   const qualification = getQualificationForRoom(bench.roomId);
   const person = qualification ? findAvailablePersonnel(state, qualification.id) : null;
   // Rooms with no qualification domain defined (the view-only rooms) don't require
@@ -362,7 +374,8 @@ function advanceExecutionPhase(state, action) {
   if (!execution) return state;
 
   const bench = state.benches.find((b) => b.id === execution.benchId);
-  const benchType = bench ? BENCH_TYPES[bench.benchTypeId] : null;
+  const testRequest = state.testRequests.find((tr) => tr.id === execution.testRequestId);
+  const dut = testRequest ? state.duts.find((d) => d.id === testRequest.dutId) : null;
 
   const phaseOrder = ['scheduled', 'running', 'review', 'completed'];
   const currentIndex = phaseOrder.indexOf(execution.phase);
@@ -376,12 +389,14 @@ function advanceExecutionPhase(state, action) {
   };
 
   if (nextPhase === 'running') {
-    updatedExecution.phaseDurationHours = benchType ? benchType.baseCycleTimeHours : 4;
+    const runningHours = testRequest
+      ? getProcedureDurationHours(testRequest.procedure, testRequest.dutId)
+      : 4;
+    updatedExecution.phaseDurationHours = runningHours;
+    updatedExecution.runningPhaseDurationHours = runningHours; // preserved through review/completed for revenue billing
   } else if (nextPhase === 'review') {
     updatedExecution.phaseDurationHours = EXECUTION_PHASE_DURATIONS_HOURS.review;
     // Compute deterministic result when entering review.
-    const testRequest = state.testRequests.find((tr) => tr.id === execution.testRequestId);
-    const dut = testRequest ? state.duts.find((d) => d.id === testRequest.dutId) : null;
     if (testRequest && dut && bench) {
       updatedExecution.result = computeExecutionResult({
         dut,
@@ -418,7 +433,7 @@ function advanceExecutionPhase(state, action) {
   let next = { ...state, executions, testRequests, benches };
 
   if (nextPhase === 'completed') {
-    next = chargeTestRevenue(next, execution, bench);
+    next = chargeTestRevenue(next, updatedExecution, bench);
     next = consumeForExecution(next, bench);
   }
 
@@ -433,8 +448,10 @@ function advanceExecutionPhase(state, action) {
 const REVENUE_PER_CYCLE_HOUR = 145; // billing rate baked into test pricing
 
 function chargeTestRevenue(state, execution, bench) {
-  const benchType = bench ? BENCH_TYPES[bench.benchTypeId] : null;
-  const cycleHours = benchType ? benchType.baseCycleTimeHours : 4;
+  // Revenue is billed for the hours the test actually ran (procedure-driven duration,
+  // captured when entering 'running' and preserved through review/completed), not a
+  // static per-bench-type number — consistent with the generic-bench consolidation.
+  const cycleHours = execution.runningPhaseDurationHours ?? 4;
   const passed = execution.result?.passed;
   // Passed tests bill full rate; failed tests still bill (lab time was spent) but at a discount.
   const revenue = Math.round(cycleHours * REVENUE_PER_CYCLE_HOUR * (passed === false ? 0.6 : 1));

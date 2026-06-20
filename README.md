@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 12** — Technical debt pass (automated test suite, bundle-size code-splitting, print stylesheet fix) plus a calendar-week date system: every date in the app now displays as CW{week}.{day-of-week} instead of "Day N".
+**Version 13** — Bench consolidation: each interactive room now has one generic test bench instead of 2-3 separate types. Endurance-category procedures require the bench to be upgraded to Tier 2+; performance-category procedures run on any tier. Test durations are now realistic — 2-5 sim-days for performance tests, 4-6 sim-weeks for endurance tests — instead of 4-20 hours.
 
 ## What this is
 
@@ -24,15 +24,20 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 ## Testing
 
 ```bash
-npm test          # Vitest — 62 unit tests on the reducer, selectors, and result engine
+npm test          # Vitest — 84 unit tests on the reducer, selectors, scheduling logic, and result engine
 npm run test:watch  # same, in watch mode
 npm run test:ui     # Vitest's browser UI
-npm run test:e2e    # Playwright — 8 end-to-end tests against a real built+served app
+npm run test:e2e    # Playwright — 9 end-to-end tests against a real built+served app
 ```
 
-**Unit tests** (`src/**/*.test.js`, Vitest, no browser) cover the highest-value, highest-bug-rate code in this project: the reducer's action handlers (install/upgrade economy, the full test-request workflow, maintenance/calibration, consumables, daily upkeep), the deterministic result engine, and the trickier derived-data selectors (maintenance state, the channel map, personnel capacity). Writing these surfaced one real bug — `SCHEDULE_TEST_REQUEST` didn't actually check that a test request was `approved` before scheduling it, only that the bench was free, so a `submitted` request could silently skip the Approve step. That's now fixed and has a regression test.
+**Unit tests** (`src/**/*.test.js`, Vitest, no browser) cover the highest-value, highest-bug-rate code in this project: the reducer's action handlers (install/upgrade economy, the full test-request workflow, maintenance/calibration, consumables, daily upkeep, endurance tier-gating), the deterministic result engine, the trickier derived-data selectors (maintenance state, the channel map, personnel capacity, procedure→room resolution), and — notably — `getSchedulingAction`, a pure UI-decision function tested directly even though it lives in a `.jsx` file (Vite's transform handles the JSX syntax transparently in Vitest's node environment, no extra config needed).
 
-**E2E tests** (`e2e/critical-flows.spec.js`, Playwright) drive a real browser against the actual built app — the same kind of checks this project ran manually, by hand, every single session up to this point. They cover: the Build-mode install/upgrade economy, the building/floor navigation, the test-request submission flow, the personnel-capacity scheduling block, role switching, and a save-file round-trip.
+Three real bugs have been found and fixed by writing these tests so far, not just by manual clicking:
+1. `SCHEDULE_TEST_REQUEST` didn't check that a request was `approved` before scheduling it — only that the bench was free — so a `submitted` request could silently skip the Approve step.
+2. The bench-consolidation work left a stale `procedure → bench type id` lookup map keyed on bench type IDs that no longer existed, which silently broke the Scheduling page's "Laboratory" column and "Schedule on..." action for every unscheduled request.
+3. The reducer's new endurance tier-gating guard was added without updating the UI-side `getSchedulingAction` to match, so the Scheduling page kept offering a clickable "Schedule" button that the reducer would silently refuse.
+
+**E2E tests** (`e2e/critical-flows.spec.js`, Playwright) drive a real browser against the actual built app — the same kind of checks this project ran manually, by hand, every single session up to this point. They cover: the Build-mode install/upgrade economy, the building/floor navigation, the test-request submission flow, the personnel-capacity scheduling block, the endurance tier-gating block (and its resolution once the bench is upgraded), role switching, and a save-file round-trip.
 
 **A note on this sandbox specifically**: this development environment has no network access to `playwright.dev`, so `npx playwright install` can't fetch its pinned browser revision. `playwright.config.js` supports an optional `PLAYWRIGHT_CHROMIUM_PATH` environment variable to point at an already-installed Chromium binary instead — only needed in offline/sandboxed setups like this one. On a normal development machine, leave it unset and `npx playwright install` works as usual.
 
@@ -84,6 +89,7 @@ to the overview screen at any time.
 - **Code-splitting** (new): jsPDF (and its `html2canvas` dependency) and recharts — the two heaviest packages in this app — are now lazy-loaded via dynamic `import()` and `React.lazy`, instead of bundled into the initial page load. The main JS chunk dropped from ~1.1MB to ~330KB; the PDF and Statistics chunks now only load when a person actually clicks Download PDF or opens Statistics.
 - **Print stylesheet verified** (was parked since early versions): confirmed via Playwright's print-media emulation that the report overlay prints cleanly — app chrome (sidebar, top bar, dimmed backdrop, buttons) is hidden, only the report content shows. Found and fixed one real layout bug in the process (the print view was vertically centering content, leaving a large empty margin at the top of the printed page).
 - **Calendar week date system** (new): every date shown to the person now reads as `CW{week}.{day-of-week}` — e.g. day 23 displays as `CW4.2` — instead of the old "Day N" format. This is purely a display change: `simClock.day` internally is still a plain absolute day counter (day 1, 2, 3, ...), so no reducer logic, saved-game data, or test assertions about day numbers needed to change — only `formatCalendarWeek()` in `selectors.js` and every UI site that displayed a day got updated to call it. Covers the top bar, Projects, Scheduling, Assets, Finance, Audit Log, Statistics (including chart axis labels/tooltips), the New Test Request modal (shows a live CW preview next to the day-number input), the report overlay, and the downloadable PDF.
+- **Bench consolidation + realistic durations** (new): each of the 4 interactive rooms went from 2-3 separate bench types down to **one generic bench type per room** (e.g. "Ion Propulsion Test Bench" replaces the old Component/Endurance/Perf. Mapping split). Test duration is now driven by the procedure itself, not the bench: performance-category procedures (efficiency mapping, thrust characterization, thermal cycling, etc.) take 2-5 sim-days; endurance-category procedures (endurance, lifetime, ct_lifetime, thermal_endurance) take 4-6 sim-weeks. **Endurance procedures additionally require the bench to be upgraded to Tier 2+** — a tier-1 bench can run any performance test but is refused for endurance, both at the reducer level and in the Scheduling page's UI (shown as "Needs Tier 2+ bench" in orange, distinct from "No bench free"). Durations are deterministic per DUT+procedure pair (not random), and revenue billing now reflects the actual hours a test ran rather than a static per-bench-type rate. Found and fixed two real bugs while building this: a stale procedure→bench-type lookup map that silently broke the Scheduling page's room resolution for unscheduled requests, and a desync between the reducer's tier-gating guard and the UI's scheduling-decision logic (the UI kept offering a "Schedule" button the reducer would silently refuse) — both now covered by dedicated unit and E2E tests.
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
@@ -131,18 +137,22 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 13. **Only Dashboard and Scheduling have a real mobile layout so far.** Every other page (Operations, Projects, Laboratories, Statistics, Assets, Consumables, Personnel, Finance, Audit Log) renders via a scaled-down desktop fallback in Mobile mode — usable, clearly labeled as such in-app, but not yet touch-optimized (small text, small tap targets). Build mode has no mobile treatment at all yet; switching to Mobile view only affects Operate mode.
 14. **Real touch-gesture scrolling hasn't been confirmed on an actual physical device.** Scroll mechanics were verified via mouse-wheel and programmatic scroll in this sandboxed testing environment; native touch-scroll on a real phone should work the same way (transforms don't interfere with it) but hasn't been directly tested.
 15. **The Desktop/Mobile toggle is per-session, not persisted.** Reloading the page re-evaluates the viewport width and may reset to the auto-picked mode rather than remembering an explicit manual choice.
+16. **The New Test Request modal doesn't filter procedures by room or DUT compatibility.** It lets you pick any procedure from the full catalog regardless of which project/DUT you've selected — a pre-existing gap, not introduced by the bench consolidation, but worth knowing: you can submit a request that doesn't actually match the DUT's domain.
+17. **Seed transaction log descriptions reference the old (pre-consolidation) bench type names** (e.g. "Installed BNC-IPL-02 (Endurance Bench)") since they describe history at the time of that fictional purchase. Cosmetically stale but not functionally wrong — Finance's live transaction list for anything that happens after you start playing uses the new consolidated names correctly.
 
 ## Project structure
 
 ```
 src/
-  data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types,
-               qualification domains + capacity), seed.js (initial state — 3 buildings (5 building/floor units), 16 rooms, 4 projects,
-               consumables stock, personnel roster), selectors.js (derived data + finance + maintenance +
-               channel + statistics + personnel-capacity helpers, incl. roomForProcedure — shared by desktop
-               and mobile Scheduling views so they never drift apart, and formatCalendarWeek — the single
-               source of truth for the CW{week}.{day} date display format used everywhere), reports.js (report content builder),
-               reportPdf.js (jsPDF export)
+  data/        catalog.js (one generic bench type per interactive room, procedures tagged with a
+               performance/endurance category that drives duration + tier-gating via
+               getProcedureDurationHours/MIN_TIER_FOR_ENDURANCE, maintenance thresholds, channel counts,
+               consumable types, qualification domains + capacity), seed.js (initial state — 3 buildings
+               (5 building/floor units), 16 rooms, 4 projects, consumables stock, personnel roster),
+               selectors.js (derived data + finance + maintenance + channel + statistics + personnel-capacity
+               helpers, incl. roomForProcedure — shared by desktop and mobile Scheduling views so they never
+               drift apart, and formatCalendarWeek — the single source of truth for the CW{week}.{day} date
+               display format used everywhere), reports.js (report content builder), reportPdf.js (jsPDF export)
   engine/      testResults.js (deterministic scoring — covers all 4 interactive rooms' procedures)
   context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions,
                daily snapshots, consumable consumption/reorder, personnel-aware scheduling,
@@ -164,7 +174,7 @@ src/
                BuildPanel (room-scoped catalog), FacilityMap (superseded, unused — see Planned Next)
 
 e2e/           critical-flows.spec.js — Playwright E2E tests
-*.test.js      co-located next to the file they test (appReducer.test.js, selectors.test.js, testResults.test.js)
+*.test.js      co-located next to the file they test (appReducer.test.js, selectors.test.js, testResults.test.js, SchedulingPage.test.js)
 vitest.config.js, playwright.config.js — test runner configuration
 ```
 

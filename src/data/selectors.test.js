@@ -11,6 +11,7 @@ import {
   getPersonnelLoad,
   findAvailablePersonnel,
   getQualificationForRoom,
+  roomForProcedure,
   CHANNEL_GROUP_SIZE,
 } from './selectors.js';
 import { createInitialState } from './seed.js';
@@ -184,5 +185,44 @@ describe('formatCalendarWeek', () => {
   it('clamps below day 1 rather than producing a negative or zero week', () => {
     expect(formatCalendarWeek(0)).toBe('CW1.1');
     expect(formatCalendarWeek(-5)).toBe('CW1.1');
+  });
+});
+
+describe('roomForProcedure', () => {
+  // Regression guard: this map is keyed by bench type id, which changed when the
+  // per-room bench types were consolidated into one generic bench per room. If this
+  // map isn't updated to match, every unscheduled request's "Laboratory" column and
+  // "Schedule on..." action silently breaks — exactly what happened once already.
+  it('resolves every Ion Propulsion procedure to room-ipl', () => {
+    const state = createInitialState();
+    for (const proc of ['component_drive', 'endurance', 'lifetime', 'efficiency_mapping', 'power_consumption']) {
+      expect(roomForProcedure(state, proc)?.id).toBe('room-ipl');
+    }
+  });
+
+  it('resolves every Fuel Cell procedure to room-fcpl', () => {
+    const state = createInitialState();
+    for (const proc of ['fc_efficiency', 'fc_load_cycling', 'fc_thermal']) {
+      expect(roomForProcedure(state, proc)?.id).toBe('room-fcpl');
+    }
+  });
+
+  it('resolves every Chemical Thruster procedure to room-ctl', () => {
+    const state = createInitialState();
+    for (const proc of ['thrust_characterization', 'ignition_reliability', 'ct_thermal_performance', 'fuel_consumption', 'ct_lifetime']) {
+      expect(roomForProcedure(state, proc)?.id).toBe('room-ctl');
+    }
+  });
+
+  it('resolves every Thermal Qualification procedure to room-tql', () => {
+    const state = createInitialState();
+    for (const proc of ['thermal_cycling', 'extreme_temp_operation', 'thermal_vacuum', 'thermal_endurance']) {
+      expect(roomForProcedure(state, proc)?.id).toBe('room-tql');
+    }
+  });
+
+  it('returns null for a procedure with no matching bench anywhere', () => {
+    const state = createInitialState();
+    expect(roomForProcedure(state, 'not_a_real_procedure')).toBeNull();
   });
 });

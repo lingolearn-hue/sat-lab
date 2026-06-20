@@ -106,7 +106,7 @@ test.describe('Personnel-aware scheduling', () => {
         { id: 'e2', testRequestId: 'f2', benchId: 'bnc-ipl-03', assignedPersonnelId: 'per-002', phase: 'running', phaseStartedAtSimMinutes: 0, phaseDurationHours: 5, result: null }
       );
       state.testRequests.push({
-        id: 'tr-test-e2e', projectId: 'proj-sat004', dutId: 'dut-xr5', procedure: 'lifetime',
+        id: 'tr-test-e2e', projectId: 'proj-sat004', dutId: 'dut-xr5', procedure: 'efficiency_mapping',
         priority: 'normal', requestedCompletionDay: 30, status: 'approved', assignedBenchId: null,
       });
       const bench = state.benches.find((b) => b.id === 'bnc-ipl-03');
@@ -118,6 +118,40 @@ test.describe('Personnel-aware scheduling', () => {
     await page.click('text=Scheduling');
 
     await expect(page.locator('text=No Ion Propulsion staff free')).toBeVisible();
+  });
+});
+
+test.describe('Bench consolidation — endurance tier gating', () => {
+  test('an endurance-category test cannot be scheduled on a tier-1 bench, but can once upgraded', async ({ page }) => {
+    await page.evaluate(() => {
+      const raw = localStorage.getItem('satellite-test-center:state:v1');
+      const state = JSON.parse(raw);
+      state.testRequests.push({
+        id: 'tr-test-endurance', projectId: 'proj-sat004', dutId: 'dut-xr5', procedure: 'lifetime',
+        priority: 'normal', requestedCompletionDay: 60, status: 'approved', assignedBenchId: null,
+      });
+      const bench = state.benches.find((b) => b.id === 'bnc-ipl-03');
+      bench.status = 'idle';
+      bench.currentExecutionId = null;
+      bench.tier = 1;
+      localStorage.setItem('satellite-test-center:state:v1', JSON.stringify(state));
+    });
+    await page.reload();
+    await page.click('text=Scheduling');
+
+    // Tier 1: bench is idle but not upgraded enough for this endurance test.
+    const row = page.locator('tr', { hasText: 'TR-TEST-ENDURANCE' });
+    await expect(row.locator('text=Needs Tier 2+ bench')).toBeVisible();
+
+    // Upgrade the bench to tier 2, then the same request should become schedulable.
+    await page.click('text=Build');
+    await page.click('text=Floor A1');
+    await page.click('button:has-text("UPGRADE BNC-IPL-03")');
+    await page.waitForTimeout(300);
+    await page.click('text=Operate');
+    await page.click('text=Scheduling');
+
+    await expect(row.locator('text=Schedule on BNC-IPL-03')).toBeVisible();
   });
 });
 

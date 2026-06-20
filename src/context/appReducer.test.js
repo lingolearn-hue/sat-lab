@@ -11,14 +11,16 @@ function freshState() {
 
 // Creates a fresh, approved (not yet scheduled) Ion Propulsion test request,
 // since every seeded request in tr-0233's family already has a status that
-// doesn't suit "about to be scheduled" tests. Returns { state, testRequestId }.
+// doesn't suit "about to be scheduled" tests. Uses a performance-category
+// procedure so it's schedulable on any tier bench by default — tests that
+// specifically need an endurance-category request build their own.
 function freshApprovedRequest(state) {
   const before = state.testRequests.map((tr) => tr.id);
   const submitted = appReducer(state, {
     type: 'SUBMIT_TEST_REQUEST',
     projectId: 'proj-sat004',
     dutId: 'dut-xr5',
-    procedure: 'lifetime',
+    procedure: 'efficiency_mapping',
     priority: 'low',
     requestedCompletionDay: 28,
   });
@@ -70,14 +72,14 @@ describe('appReducer — bench install/upgrade economy', () => {
   it('INSTALL_BENCH deducts the correct cost and adds a bench in idle status', () => {
     const state = freshState();
     const budgetBefore = state.facility.budget;
-    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'ion_propulsion_bench' });
 
     const installed = next.benches.find((b) => !state.benches.some((sb) => sb.id === b.id));
 
     expect(installed).toBeDefined();
     expect(installed.status).toBe('idle'); // regression guard: this exact bug shipped once before
     expect(installed.tier).toBe(1);
-    expect(next.facility.budget).toBe(budgetBefore - 18000); // component bench base cost
+    expect(next.facility.budget).toBe(budgetBefore - 24000); // ion_propulsion_bench base cost
   });
 
   it('INSTALL_BENCH refuses when the room is already full', () => {
@@ -86,13 +88,13 @@ describe('appReducer — bench install/upgrade economy', () => {
     let s = state;
     const startCount = s.benches.filter((b) => b.roomId === 'room-ipl').length;
     for (let i = startCount; i < room.maxSlots; i++) {
-      s = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+      s = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'ion_propulsion_bench' });
     }
     const fullCount = s.benches.filter((b) => b.roomId === 'room-ipl').length;
     expect(fullCount).toBe(room.maxSlots);
 
     const budgetBeforeOverfill = s.facility.budget;
-    const attemptOverfill = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    const attemptOverfill = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'ion_propulsion_bench' });
     expect(attemptOverfill.benches.filter((b) => b.roomId === 'room-ipl').length).toBe(room.maxSlots);
     expect(attemptOverfill.facility.budget).toBe(budgetBeforeOverfill);
   });
@@ -100,7 +102,7 @@ describe('appReducer — bench install/upgrade economy', () => {
   it('INSTALL_BENCH refuses when budget is insufficient', () => {
     const state = freshState();
     state.facility.budget = 100;
-    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'ion_propulsion_bench' });
     expect(next.benches.length).toBe(state.benches.length);
     expect(next.facility.budget).toBe(100);
   });
@@ -112,17 +114,22 @@ describe('appReducer — bench install/upgrade economy', () => {
     const next = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
     const updated = next.benches.find((b) => b.id === 'bnc-ipl-03');
     expect(updated.tier).toBe(bench.tier + 1);
-    expect(next.facility.budget).toBe(budgetBefore - 9800);
+    expect(next.facility.budget).toBe(budgetBefore - 13000); // ion_propulsion_bench tier-2 upgrade cost
   });
 
   it('UPGRADE_BENCH refuses past the bench type max tier', () => {
     const state = freshState();
-    const afterOnce = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
-    const budgetAfterOnce = afterOnce.facility.budget;
-    const afterTwice = appReducer(afterOnce, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
-    const bench = afterTwice.benches.find((b) => b.id === 'bnc-ipl-03');
-    expect(bench.tier).toBe(2);
-    expect(afterTwice.facility.budget).toBe(budgetAfterOnce);
+    // ion_propulsion_bench has maxTier 3; bnc-ipl-03 starts at tier 1, so it takes
+    // two successful upgrades to reach the ceiling, then a third attempt is refused.
+    const afterFirst = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    const afterSecond = appReducer(afterFirst, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    expect(afterSecond.benches.find((b) => b.id === 'bnc-ipl-03').tier).toBe(3);
+
+    const budgetAtCeiling = afterSecond.facility.budget;
+    const afterThird = appReducer(afterSecond, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    const bench = afterThird.benches.find((b) => b.id === 'bnc-ipl-03');
+    expect(bench.tier).toBe(3);
+    expect(afterThird.facility.budget).toBe(budgetAtCeiling);
   });
 
   it('EXPAND_ROOM increases tier, maxSlots, and upkeep, and deducts cost', () => {
@@ -208,6 +215,92 @@ describe('appReducer — test request workflow', () => {
     // bnc-ipl-03 is idle, but no qualified person has spare capacity — schedule must be refused.
     expect(next.testRequests.find((t) => t.id === testRequestId).status).toBe('approved');
     expect(next.benches.find((b) => b.id === 'bnc-ipl-03').status).toBe('idle');
+  });
+
+  it('SCHEDULE_TEST_REQUEST refuses an endurance-category procedure on a tier-1 bench', () => {
+    const state = freshState();
+    const before = state.testRequests.map((tr) => tr.id);
+    const submitted = appReducer(state, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr5',
+      procedure: 'lifetime', // endurance-category
+      priority: 'low',
+      requestedCompletionDay: 28,
+    });
+    const tr = submitted.testRequests.find((t) => !before.includes(t.id));
+    const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: tr.id });
+
+    // bnc-ipl-03 is tier 1 in seed data — endurance requires MIN_TIER_FOR_ENDURANCE (2).
+    expect(approved.benches.find((b) => b.id === 'bnc-ipl-03').tier).toBe(1);
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: tr.id, benchId: 'bnc-ipl-03' });
+    expect(next.testRequests.find((t) => t.id === tr.id).status).toBe('approved'); // unchanged, refused
+    expect(next.executions.some((e) => e.testRequestId === tr.id)).toBe(false);
+  });
+
+  it('SCHEDULE_TEST_REQUEST succeeds for an endurance-category procedure once the bench is upgraded to tier 2', () => {
+    const state = freshState();
+    const upgradedOnce = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    expect(upgradedOnce.benches.find((b) => b.id === 'bnc-ipl-03').tier).toBe(2);
+
+    const before = upgradedOnce.testRequests.map((tr) => tr.id);
+    const submitted = appReducer(upgradedOnce, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr5',
+      procedure: 'lifetime',
+      priority: 'low',
+      requestedCompletionDay: 28,
+    });
+    const tr = submitted.testRequests.find((t) => !before.includes(t.id));
+    const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: tr.id });
+
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: tr.id, benchId: 'bnc-ipl-03' });
+    expect(next.testRequests.find((t) => t.id === tr.id).status).toBe('scheduled');
+    const execution = next.executions.find((e) => e.testRequestId === tr.id);
+    expect(execution).toBeDefined();
+    expect(execution.phaseDurationHours).toBe(1); // scheduled phase's 1-hour setup buffer; running duration is set on the next phase advance
+  });
+
+  it('a performance-category procedure runs fine on a tier-1 bench (no gating)', () => {
+    const state = freshState();
+    const { state: approved, testRequestId } = freshApprovedRequest(state); // efficiency_mapping, performance-category
+    expect(state.benches.find((b) => b.id === 'bnc-ipl-03').tier).toBe(1);
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03' });
+    expect(next.testRequests.find((t) => t.id === testRequestId).status).toBe('scheduled');
+  });
+
+  it('running-phase duration is days-scale for performance procedures and weeks-scale for endurance procedures', () => {
+    const initial = freshState();
+    const upgraded = appReducer(initial, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' }); // tier 2, unlocks endurance
+
+    // Performance procedure: should land in the 48-120h (2-5 day) range.
+    const { state: perfApproved, testRequestId: perfTrId } = freshApprovedRequest(upgraded);
+    let perfState = appReducer(perfApproved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: perfTrId, benchId: 'bnc-ipl-03' });
+    const perfExec = perfState.executions.find((e) => e.testRequestId === perfTrId);
+    perfState = appReducer(perfState, { type: 'ADVANCE_EXECUTION_PHASE', executionId: perfExec.id }); // -> running
+    const perfDuration = perfState.executions.find((e) => e.id === perfExec.id).phaseDurationHours;
+    expect(perfDuration).toBeGreaterThanOrEqual(48);
+    expect(perfDuration).toBeLessThanOrEqual(120);
+
+    // Endurance procedure: should land in the 672-1008h (4-6 week) range.
+    const before = upgraded.testRequests.map((tr) => tr.id);
+    const submitted = appReducer(upgraded, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr5',
+      procedure: 'lifetime',
+      priority: 'low',
+      requestedCompletionDay: 60,
+    });
+    const enduranceTr = submitted.testRequests.find((t) => !before.includes(t.id));
+    let enduranceState = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: enduranceTr.id });
+    enduranceState = appReducer(enduranceState, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: enduranceTr.id, benchId: 'bnc-ipl-03' });
+    const enduranceExec = enduranceState.executions.find((e) => e.testRequestId === enduranceTr.id);
+    enduranceState = appReducer(enduranceState, { type: 'ADVANCE_EXECUTION_PHASE', executionId: enduranceExec.id });
+    const enduranceDuration = enduranceState.executions.find((e) => e.id === enduranceExec.id).phaseDurationHours;
+    expect(enduranceDuration).toBeGreaterThanOrEqual(672);
+    expect(enduranceDuration).toBeLessThanOrEqual(1008);
   });
 
   it('ADVANCE_EXECUTION_PHASE walks scheduled -> running -> review -> completed, freeing the bench at the end', () => {

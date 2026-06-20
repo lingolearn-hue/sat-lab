@@ -2,35 +2,19 @@
 // Bench types available in the Ion Propulsion Laboratory.
 
 export const BENCH_TYPES = {
-  component: {
-    id: 'component',
-    name: 'Component Bench',
-    description: 'Component-level ion drive testing. Lowest throughput, lowest cost.',
-    procedures: ['component_drive'],
-    baseCost: 18000,
-    baseCycleTimeHours: 6,
-    maxTier: 2,
-    upgradeCost: { 2: 9800 },
-  },
-  endurance: {
-    id: 'endurance',
-    name: 'Endurance Bench',
-    description: 'Long-duration lifetime and endurance testing. Slower throughput, high data value.',
-    procedures: ['endurance', 'lifetime'],
-    baseCost: 31500,
-    baseCycleTimeHours: 18,
+  // Ion Propulsion Laboratory — one generic bench replaces the old Component/
+  // Endurance/Perf. Mapping split. Tier 1 can run performance-style procedures;
+  // endurance-style procedures additionally require MIN_TIER_FOR_ENDURANCE (see
+  // PROCEDURES above) — that's the "update" that unlocks endurance testing, not a
+  // separate physical bench.
+  ion_propulsion_bench: {
+    id: 'ion_propulsion_bench',
+    name: 'Ion Propulsion Test Bench',
+    description: 'Component-level drive, efficiency mapping, and power characterization. Upgrade to Tier 2 to unlock endurance and lifetime testing.',
+    procedures: ['component_drive', 'efficiency_mapping', 'power_consumption', 'endurance', 'lifetime'],
+    baseCost: 24000,
     maxTier: 3,
-    upgradeCost: { 2: 12500, 3: 21000 },
-  },
-  perf_mapping: {
-    id: 'perf_mapping',
-    name: 'Perf. Mapping Bench',
-    description: 'Efficiency and power consumption mapping. Fast cycle time.',
-    procedures: ['efficiency_mapping', 'power_consumption'],
-    baseCost: 26000,
-    baseCycleTimeHours: 4,
-    maxTier: 2,
-    upgradeCost: { 2: 14200 },
+    upgradeCost: { 2: 13000, 3: 22000 },
   },
 
   // Other EPC labs — not yet installable/upgradeable in v1 (display-only on the
@@ -42,10 +26,9 @@ export const BENCH_TYPES = {
     description: 'Fuel cell stack efficiency, lifetime, and load cycling.',
     procedures: ['fc_efficiency', 'fc_load_cycling', 'fc_thermal'],
     baseCost: 24000,
-    baseCycleTimeHours: 10,
-    maxTier: 2,
-    upgradeCost: { 2: 11000 },
-    channelsByTier: { 1: 96, 2: 192 }, // channels grouped visually in 6s
+    maxTier: 3,
+    upgradeCost: { 2: 11000, 3: 19000 },
+    channelsByTier: { 1: 96, 2: 192, 3: 192 }, // channels grouped visually in 6s
   },
   solar_panel: {
     id: 'solar_panel',
@@ -91,25 +74,16 @@ export const BENCH_TYPES = {
   // Building B — Chemical Propulsion Center.
   // Chemical Thruster Laboratory is the second fully-interactive room outside Building A,
   // matching the precedent set by Ion Propulsion + Fuel Cell Power System.
-  chemical_thruster_stand: {
-    id: 'chemical_thruster_stand',
-    name: 'Chemical Thruster Stand',
-    description: 'Thrust characterization, ignition reliability, and thermal performance testing.',
-    procedures: ['thrust_characterization', 'ignition_reliability', 'ct_thermal_performance'],
-    baseCost: 29000,
-    baseCycleTimeHours: 7,
-    maxTier: 2,
-    upgradeCost: { 2: 13500 },
-  },
-  ct_endurance_stand: {
-    id: 'ct_endurance_stand',
-    name: 'Thruster Endurance Stand',
-    description: 'Fuel consumption and lifetime testing under sustained firing.',
-    procedures: ['fuel_consumption', 'ct_lifetime'],
-    baseCost: 33500,
-    baseCycleTimeHours: 16,
-    maxTier: 2,
-    upgradeCost: { 2: 16000 },
+  // One generic bench replaces the old Stand/Endurance-Stand split — same consolidation
+  // as Ion Propulsion: Tier 2+ unlocks the ct_lifetime endurance procedure.
+  chemical_thruster_bench: {
+    id: 'chemical_thruster_bench',
+    name: 'Chemical Thruster Test Bench',
+    description: 'Thrust characterization, ignition reliability, fuel consumption, and thermal performance. Upgrade to Tier 2 to unlock lifetime testing.',
+    procedures: ['thrust_characterization', 'ignition_reliability', 'ct_thermal_performance', 'fuel_consumption', 'ct_lifetime'],
+    baseCost: 31000,
+    maxTier: 3,
+    upgradeCost: { 2: 14500, 3: 24000 },
   },
 
   // Building B — view-only rooms.
@@ -135,27 +109,17 @@ export const BENCH_TYPES = {
   },
 
   // Building C — Safety and Qualification Center.
-  // Thermal Qualification Laboratory is the second fully-interactive room in this building set,
-  // alongside Chemical Thruster Laboratory in Building B.
-  thermal_chamber: {
-    id: 'thermal_chamber',
-    name: 'Thermal Chamber',
-    description: 'Thermal cycling, extreme temperature operation, and thermal vacuum simulation.',
-    procedures: ['thermal_cycling', 'extreme_temp_operation', 'thermal_vacuum'],
-    baseCost: 34000,
-    baseCycleTimeHours: 11,
-    maxTier: 2,
-    upgradeCost: { 2: 15500 },
-  },
-  thermal_endurance_chamber: {
-    id: 'thermal_endurance_chamber',
-    name: 'Thermal Endurance Chamber',
-    description: 'Extended thermal endurance testing under cyclic load.',
-    procedures: ['thermal_endurance'],
-    baseCost: 30000,
-    baseCycleTimeHours: 20,
-    maxTier: 2,
-    upgradeCost: { 2: 14000 },
+  // Thermal Qualification Laboratory is the second fully-interactive room in this building
+  // set, alongside Chemical Thruster Laboratory in Building B. One generic bench replaces
+  // the old Chamber/Endurance-Chamber split — Tier 2+ unlocks thermal_endurance.
+  thermal_chamber_bench: {
+    id: 'thermal_chamber_bench',
+    name: 'Thermal Qualification Chamber',
+    description: 'Thermal cycling, extreme temperature operation, and thermal vacuum simulation. Upgrade to Tier 2 to unlock thermal endurance testing.',
+    procedures: ['thermal_cycling', 'extreme_temp_operation', 'thermal_vacuum', 'thermal_endurance'],
+    baseCost: 32000,
+    maxTier: 3,
+    upgradeCost: { 2: 15000, 3: 25000 },
   },
 
   // Building C — view-only rooms.
@@ -212,32 +176,61 @@ export const BENCH_TYPES = {
 };
 
 // Test procedures (from spec: Ion Propulsion Laboratory tests)
+// category: 'performance' (days-scale) or 'endurance' (weeks-scale) — drives both
+// how long the running phase takes and whether a tier-1 bench can run it at all
+// (endurance requires MIN_TIER_FOR_ENDURANCE, performance runs at any tier).
+export const PROCEDURE_DURATION_HOURS = {
+  performance: { min: 48, max: 120 }, // 2-5 sim-days
+  endurance: { min: 672, max: 1008 }, // 4-6 sim-weeks
+};
+
+export const MIN_TIER_FOR_ENDURANCE = 2;
+
+// Deterministic duration within the category's range — varies slightly by DUT id
+// so different devices don't all take the exact same number of hours, without
+// introducing randomness (same DUT + same procedure always yields the same duration).
+export function getProcedureDurationHours(procedureId, dutId) {
+  const procedure = PROCEDURES[procedureId];
+  const category = procedure?.category || 'performance';
+  const range = PROCEDURE_DURATION_HOURS[category];
+  const seed = hashStringToUnitInterval(`${procedureId}:${dutId || ''}`);
+  return Math.round(range.min + seed * (range.max - range.min));
+}
+
+function hashStringToUnitInterval(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  }
+  return (hash % 1000) / 1000;
+}
+
 export const PROCEDURES = {
-  component_drive: { id: 'component_drive', name: 'Component Drive Test', metricKey: 'driveStability', passThreshold: 0.7 },
-  endurance: { id: 'endurance', name: 'Endurance Test', metricKey: 'enduranceScore', passThreshold: 0.65 },
-  lifetime: { id: 'lifetime', name: 'Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.65 },
-  efficiency_mapping: { id: 'efficiency_mapping', name: 'Efficiency Mapping', metricKey: 'efficiency', passThreshold: 0.6 },
-  power_consumption: { id: 'power_consumption', name: 'Power Consumption Characterization', metricKey: 'powerEfficiency', passThreshold: 0.6 },
+  component_drive: { id: 'component_drive', name: 'Component Drive Test', metricKey: 'driveStability', passThreshold: 0.7, category: 'performance' },
+  endurance: { id: 'endurance', name: 'Endurance Test', metricKey: 'enduranceScore', passThreshold: 0.65, category: 'endurance' },
+  lifetime: { id: 'lifetime', name: 'Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.65, category: 'endurance' },
+  efficiency_mapping: { id: 'efficiency_mapping', name: 'Efficiency Mapping', metricKey: 'efficiency', passThreshold: 0.6, category: 'performance' },
+  power_consumption: { id: 'power_consumption', name: 'Power Consumption Characterization', metricKey: 'powerEfficiency', passThreshold: 0.6, category: 'performance' },
 
   // Fuel Cell Power System Laboratory tests (spec: efficiency, lifetime, load cycling, thermal, system integration)
-  fc_efficiency: { id: 'fc_efficiency', name: 'Fuel Cell Efficiency Test', metricKey: 'efficiency', passThreshold: 0.55 },
-  fc_load_cycling: { id: 'fc_load_cycling', name: 'Load Cycling Test', metricKey: 'cyclingStability', passThreshold: 0.6 },
-  fc_thermal: { id: 'fc_thermal', name: 'Thermal Behavior Test', metricKey: 'thermalStability', passThreshold: 0.6 },
+  fc_efficiency: { id: 'fc_efficiency', name: 'Fuel Cell Efficiency Test', metricKey: 'efficiency', passThreshold: 0.55, category: 'performance' },
+  fc_load_cycling: { id: 'fc_load_cycling', name: 'Load Cycling Test', metricKey: 'cyclingStability', passThreshold: 0.6, category: 'performance' },
+  fc_thermal: { id: 'fc_thermal', name: 'Thermal Behavior Test', metricKey: 'thermalStability', passThreshold: 0.6, category: 'performance' },
 
   // Chemical Thruster Laboratory tests (spec: thrust characterization, fuel consumption,
   // ignition reliability, thermal performance, lifetime testing)
-  thrust_characterization: { id: 'thrust_characterization', name: 'Thrust Characterization', metricKey: 'thrustEfficiency', passThreshold: 0.6 },
-  ignition_reliability: { id: 'ignition_reliability', name: 'Ignition Reliability Test', metricKey: 'ignitionReliability', passThreshold: 0.7 },
-  ct_thermal_performance: { id: 'ct_thermal_performance', name: 'Thermal Performance Test', metricKey: 'thermalStability', passThreshold: 0.6 },
-  fuel_consumption: { id: 'fuel_consumption', name: 'Fuel Consumption Test', metricKey: 'fuelEfficiency', passThreshold: 0.55 },
-  ct_lifetime: { id: 'ct_lifetime', name: 'Thruster Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.6 },
+  thrust_characterization: { id: 'thrust_characterization', name: 'Thrust Characterization', metricKey: 'thrustEfficiency', passThreshold: 0.6, category: 'performance' },
+  ignition_reliability: { id: 'ignition_reliability', name: 'Ignition Reliability Test', metricKey: 'ignitionReliability', passThreshold: 0.7, category: 'performance' },
+  ct_thermal_performance: { id: 'ct_thermal_performance', name: 'Thermal Performance Test', metricKey: 'thermalStability', passThreshold: 0.6, category: 'performance' },
+  fuel_consumption: { id: 'fuel_consumption', name: 'Fuel Consumption Test', metricKey: 'fuelEfficiency', passThreshold: 0.55, category: 'performance' },
+  ct_lifetime: { id: 'ct_lifetime', name: 'Thruster Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.6, category: 'endurance' },
 
   // Thermal Qualification Laboratory tests (spec: thermal cycling, extreme temperature
   // operation, thermal endurance, thermal vacuum simulation)
-  thermal_cycling: { id: 'thermal_cycling', name: 'Thermal Cycling Test', metricKey: 'thermalStability', passThreshold: 0.6 },
-  extreme_temp_operation: { id: 'extreme_temp_operation', name: 'Extreme Temperature Operation Test', metricKey: 'operationalMargin', passThreshold: 0.55 },
-  thermal_vacuum: { id: 'thermal_vacuum', name: 'Thermal Vacuum Simulation', metricKey: 'vacuumStability', passThreshold: 0.6 },
-  thermal_endurance: { id: 'thermal_endurance', name: 'Thermal Endurance Test', metricKey: 'enduranceScore', passThreshold: 0.6 },
+  thermal_cycling: { id: 'thermal_cycling', name: 'Thermal Cycling Test', metricKey: 'thermalStability', passThreshold: 0.6, category: 'performance' },
+  extreme_temp_operation: { id: 'extreme_temp_operation', name: 'Extreme Temperature Operation Test', metricKey: 'operationalMargin', passThreshold: 0.55, category: 'performance' },
+  thermal_vacuum: { id: 'thermal_vacuum', name: 'Thermal Vacuum Simulation', metricKey: 'vacuumStability', passThreshold: 0.6, category: 'performance' },
+  thermal_endurance: { id: 'thermal_endurance', name: 'Thermal Endurance Test', metricKey: 'enduranceScore', passThreshold: 0.6, category: 'endurance' },
 };
 
 export const ROOM_EXPANSION_COST_BASE = 38000;
@@ -249,7 +242,7 @@ export const TEST_REQUEST_STATUSES = [
 
 export const EXECUTION_PHASE_DURATIONS_HOURS = {
   scheduled: 1, // setup buffer before running
-  running: null, // comes from bench cycle time
+  running: null, // computed per-execution via getProcedureDurationHours(procedure, dutId)
   review: 2,
 };
 

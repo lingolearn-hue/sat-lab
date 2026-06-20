@@ -119,10 +119,5 @@ function LegendDot({ color, label }) {
 }
 
 function procedureSummary(benchType) {
-  const summaries = {
-    component: 'component-level drive',
-    endurance: 'long-duration cycling',
-    perf_mapping: 'efficiency mapping',
-  };
-  return summaries[benchType.id] || benchType.description;
+  return benchType.description;
 }

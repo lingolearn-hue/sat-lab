@@ -1,4 +1,5 @@
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
+import { PROCEDURES, MIN_TIER_FOR_ENDURANCE } from '../../data/catalog.js';
 import {
   getBenchesForRoom,
   getRoom,
@@ -166,8 +167,23 @@ export function getSchedulingAction(state, testRequest, execution, timing, bench
     return { kind: 'approve' };
   }
   if (testRequest.status === 'approved') {
-    const idleBench = benches.find((b) => b.status === 'idle');
+    const procedureDef = PROCEDURES[testRequest.procedure];
+    const requiresEndurance = procedureDef?.category === 'endurance';
+
+    const idleBench = benches.find((b) => {
+      if (b.status !== 'idle') return false;
+      if (requiresEndurance && b.tier < MIN_TIER_FOR_ENDURANCE) return false;
+      return true;
+    });
+
     if (!idleBench) {
+      // Distinguish "nothing idle at all" from "something's idle, but not upgraded
+      // enough for this endurance test" — the second case needs a different fix
+      // (upgrade a bench) than the first (wait for one to free up).
+      const anyIdle = benches.some((b) => b.status === 'idle');
+      if (requiresEndurance && anyIdle) {
+        return { kind: 'blocked', reason: `Needs Tier ${MIN_TIER_FOR_ENDURANCE}+ bench`, severity: 'warning' };
+      }
       return { kind: 'blocked', reason: 'No bench free' };
     }
     const qualification = getQualificationForRoom(idleBench.roomId);

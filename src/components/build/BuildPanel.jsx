@@ -38,7 +38,7 @@ export default function BuildPanel({ room, hasEmptySlot, isInteractive }) {
       <div className="bg-bd-panel border-l border-bd-border-dim p-4 overflow-y-auto">
         <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-3">{room.name}</div>
         <div className="border border-dashed border-bd-border-dim rounded-[3px] p-4 text-[11.5px] text-bd-text-faint leading-relaxed mb-4">
-          This laboratory is shown for facility context. Install/upgrade actions aren't wired up for it in v1 — only the Ion Propulsion Laboratory is fully interactive right now.
+          This laboratory is shown for facility context. Install/upgrade actions aren't wired up for it in v1 — only Ion Propulsion, Fuel Cell Power System, Chemical Thruster, and Thermal Qualification Laboratories are fully interactive right now.
         </div>
         <div className="border-t border-bd-border-dim pt-2.5">
           <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-2">Room Stats</div>

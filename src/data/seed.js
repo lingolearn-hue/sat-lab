@@ -183,7 +183,7 @@ export function createInitialState() {
       {
         id: 'bnc-ipl-01',
         roomId: 'room-ipl',
-        benchTypeId: 'perf_mapping',
+        benchTypeId: 'ion_propulsion_bench',
         tier: 1,
         status: 'running',
         currentExecutionId: 'exec-0229',
@@ -196,7 +196,7 @@ export function createInitialState() {
       {
         id: 'bnc-ipl-02',
         roomId: 'room-ipl',
-        benchTypeId: 'endurance',
+        benchTypeId: 'ion_propulsion_bench',
         tier: 2,
         status: 'running',
         currentExecutionId: 'exec-0231',
@@ -209,7 +209,7 @@ export function createInitialState() {
       {
         id: 'bnc-ipl-03',
         roomId: 'room-ipl',
-        benchTypeId: 'component',
+        benchTypeId: 'ion_propulsion_bench',
         tier: 1,
         status: 'idle',
         currentExecutionId: null,
@@ -239,8 +239,8 @@ export function createInitialState() {
       { id: 'bnc-sit-02', roomId: 'room-sit', benchTypeId: 'integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 8 }, purchaseCost: 42000, hoursUsed: 33, hoursSinceLastMaintenance: 33, hoursSinceLastCalibration: 33 },
 
       // Building B — Chemical Thruster Laboratory (interactive, 2/3 slots used)
-      { id: 'bnc-ctl-01', roomId: 'room-ctl', benchTypeId: 'chemical_thruster_stand', tier: 1, status: 'running', currentExecutionId: 'exec-0401', purchaseDate: { day: 3 }, purchaseCost: 29000, hoursUsed: 64, hoursSinceLastMaintenance: 64, hoursSinceLastCalibration: 64 },
-      { id: 'bnc-ctl-02', roomId: 'room-ctl', benchTypeId: 'ct_endurance_stand', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 33500, hoursUsed: 28, hoursSinceLastMaintenance: 28, hoursSinceLastCalibration: 28 },
+      { id: 'bnc-ctl-01', roomId: 'room-ctl', benchTypeId: 'chemical_thruster_bench', tier: 1, status: 'running', currentExecutionId: 'exec-0401', purchaseDate: { day: 3 }, purchaseCost: 29000, hoursUsed: 64, hoursSinceLastMaintenance: 64, hoursSinceLastCalibration: 64 },
+      { id: 'bnc-ctl-02', roomId: 'room-ctl', benchTypeId: 'chemical_thruster_bench', tier: 2, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 33500, hoursUsed: 28, hoursSinceLastMaintenance: 28, hoursSinceLastCalibration: 28 },
 
       // Building B — view-only rooms
       { id: 'bnc-psl-01', roomId: 'room-psl', benchTypeId: 'propellant_test_rig', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 4 }, purchaseCost: 27000, hoursUsed: 70, hoursSinceLastMaintenance: 70, hoursSinceLastCalibration: 70 },
@@ -248,8 +248,8 @@ export function createInitialState() {
       { id: 'bnc-psil-01', roomId: 'room-psil', benchTypeId: 'propulsion_integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 6 }, purchaseCost: 36000, hoursUsed: 50, hoursSinceLastMaintenance: 50, hoursSinceLastCalibration: 50 },
 
       // Building C — Thermal Qualification Laboratory (interactive, 2/3 slots used)
-      { id: 'bnc-tql-01', roomId: 'room-tql', benchTypeId: 'thermal_chamber', tier: 1, status: 'running', currentExecutionId: 'exec-0501', purchaseDate: { day: 4 }, purchaseCost: 34000, hoursUsed: 80, hoursSinceLastMaintenance: 80, hoursSinceLastCalibration: 80 },
-      { id: 'bnc-tql-02', roomId: 'room-tql', benchTypeId: 'thermal_endurance_chamber', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 7 }, purchaseCost: 30000, hoursUsed: 20, hoursSinceLastMaintenance: 20, hoursSinceLastCalibration: 20 },
+      { id: 'bnc-tql-01', roomId: 'room-tql', benchTypeId: 'thermal_chamber_bench', tier: 1, status: 'running', currentExecutionId: 'exec-0501', purchaseDate: { day: 4 }, purchaseCost: 34000, hoursUsed: 80, hoursSinceLastMaintenance: 80, hoursSinceLastCalibration: 80 },
+      { id: 'bnc-tql-02', roomId: 'room-tql', benchTypeId: 'thermal_chamber_bench', tier: 2, status: 'idle', currentExecutionId: null, purchaseDate: { day: 7 }, purchaseCost: 30000, hoursUsed: 20, hoursSinceLastMaintenance: 20, hoursSinceLastCalibration: 20 },
 
       // Building C — view-only rooms
       { id: 'bnc-pcl-01', roomId: 'room-pcl', benchTypeId: 'preconditioning_unit', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 19000, hoursUsed: 12, hoursSinceLastMaintenance: 12, hoursSinceLastCalibration: 12 },
@@ -461,8 +461,11 @@ export function createInitialState() {
         benchId: 'bnc-ipl-02',
         assignedPersonnelId: 'per-001',
         phase: 'running',
-        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(13, 22, 0),
-        phaseDurationHours: 18,
+        // Endurance test (800h ~ 33 sim-days) — started on day 1 so it's genuinely
+        // mid-run by day 14, not nearly finished on the old 18-hour scale.
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(1, 8, 0),
+        phaseDurationHours: 800,
+        runningPhaseDurationHours: 800,
         result: null,
       },
       {
@@ -471,8 +474,9 @@ export function createInitialState() {
         benchId: 'bnc-ipl-01',
         assignedPersonnelId: 'per-001',
         phase: 'running',
-        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 8, 54),
-        phaseDurationHours: 4,
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(13, 8, 0),
+        phaseDurationHours: 103,
+        runningPhaseDurationHours: 103,
         result: null,
       },
       {
@@ -481,8 +485,9 @@ export function createInitialState() {
         benchId: 'bnc-fcpl-01',
         assignedPersonnelId: 'per-003',
         phase: 'running',
-        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 6, 10),
-        phaseDurationHours: 10,
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(12, 18, 0),
+        phaseDurationHours: 116,
+        runningPhaseDurationHours: 116,
         result: null,
       },
       {
@@ -491,8 +496,9 @@ export function createInitialState() {
         benchId: 'bnc-ctl-01',
         assignedPersonnelId: 'per-004',
         phase: 'running',
-        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 5, 30),
-        phaseDurationHours: 7,
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(13, 4, 0),
+        phaseDurationHours: 81,
+        runningPhaseDurationHours: 81,
         result: null,
       },
       {
@@ -501,8 +507,9 @@ export function createInitialState() {
         benchId: 'bnc-tql-01',
         assignedPersonnelId: 'per-005',
         phase: 'running',
-        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 3, 15),
-        phaseDurationHours: 11,
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(12, 23, 0),
+        phaseDurationHours: 114,
+        runningPhaseDurationHours: 114,
         result: null,
       },
     ],
