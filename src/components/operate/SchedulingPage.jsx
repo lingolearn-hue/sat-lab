@@ -47,7 +47,7 @@ export default function SchedulingPage() {
         <div>
           <div className="text-xl font-bold tracking-tight text-op-text">Scheduling</div>
           <div className="text-[13px] text-op-text-dim mt-1">
-            Electric Propulsion Test Center (Building A) · Resource allocation across benches and personnel
+            Satellite Powertrain Test Department · Resource allocation across benches and personnel
           </div>
         </div>
         <button

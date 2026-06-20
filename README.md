@@ -45,6 +45,29 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 - **Projects page now spans all 4 active projects**: SAT-004 (Ion Drive), SAT-005 (Fuel Cell Power), SAT-006 (Chemical Thruster), SAT-007 (Thermal Qualification)
 - Laboratories page, Assets page, Finance page — all real, not stubs, all spanning all 3 buildings (Personnel is the only remaining stub)
 
+## LIMS/LOMS function coverage
+
+Cross-referencing what modern LIMS/LOMS platforms typically provide against what's actually implemented here:
+
+| Function | Status |
+|---|---|
+| Sample/DUT tracking | ✅ |
+| Test/protocol workflow automation | ✅ |
+| Scheduling & resource allocation | ✅ |
+| Equipment/asset tracking | ✅ |
+| Equipment maintenance & calibration management | ✅ (reactive, not predictive) |
+| Report generation | ✅ |
+| Role-based access | ✅ (3 of the spec's 5 roles) |
+| Statistics / analytics / trend dashboards | ✅ |
+| Financial/billing integration | ✅ |
+| Multi-site / multi-building support | ✅ (added this release) |
+| Staff/personnel management | ❌ not implemented |
+| Audit trail | ⚠️ partial (event feed logs actions with timestamps, but it's a rolling 100-item log, not an immutable/exportable audit trail) |
+| Document/data integrity (e-signatures, 21 CFR Part 11-style controls) | ❌ out of scope for a simulation |
+| Inventory/consumables tracking | ❌ not implemented |
+| Mobile/responsive access | ❌ not implemented (spec calls for this explicitly) |
+| Instrument data interfacing | ❌ not applicable (no real instruments) |
+
 ## Known gaps / things to know before you click around
 
 1. **11 of 15 rooms are view-only in Build mode.** Only Ion Propulsion, Fuel Cell Power System, Chemical Thruster, and Thermal Qualification labs have a real install/upgrade economy and test workflow. The rest show accurate Room/Bench data everywhere but can't be built on yet.
