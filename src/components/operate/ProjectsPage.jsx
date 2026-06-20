@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
-import { getDut, getProcedure, TEST_REQUEST_STATUS_LABELS } from '../../data/selectors.js';
+import { getDut, getProcedure, TEST_REQUEST_STATUS_LABELS, formatCalendarWeek } from '../../data/selectors.js';
 import { buildTestReport, buildProjectReport } from '../../data/reports.js';
 import NewTestRequestModal from './NewTestRequestModal.jsx';
 import ReportOverlay from './ReportOverlay.jsx';
@@ -63,7 +63,7 @@ export default function ProjectsPage() {
               >
                 <div className="text-[15px] font-bold text-op-text">{project.name}</div>
                 <div className="text-[12.5px] text-op-text-dim mt-0.5">
-                  {project.customer} · Due Day {project.dueDate.day} · {formatStatus(project.status)}
+                  {project.customer} · Due {formatCalendarWeek(project.dueDate.day)} · {formatStatus(project.status)}
                 </div>
               </button>
               <div className="flex items-center gap-5">
@@ -128,7 +128,7 @@ export default function ProjectsPage() {
                               {TEST_REQUEST_STATUS_LABELS[tr.status]}
                             </span>
                           </td>
-                          <td className="px-5 py-3 text-[13px] text-op-text-dim">Day {tr.requestedCompletionDay}</td>
+                          <td className="px-5 py-3 text-[13px] text-op-text-dim">{formatCalendarWeek(tr.requestedCompletionDay)}</td>
                           <td className="px-5 py-3">
                             {tr.status === 'completed' ? (
                               <button onClick={() => openTestReport(tr.id)} className="text-[12px] font-semibold text-op-teal-dim hover:underline">

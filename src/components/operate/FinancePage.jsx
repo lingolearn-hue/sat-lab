@@ -5,6 +5,7 @@ import {
   getCapexTotal,
   getTransactionsByCategory,
   getCostPerCompletedTest,
+  formatCalendarWeek,
 } from '../../data/selectors.js';
 
 const CATEGORY_LABELS = {
@@ -44,7 +45,7 @@ export default function FinancePage() {
         <Kpi label="Net (lifetime)" value={formatMoney(netTotal)} accent={netTotal >= 0 ? 'teal' : 'red'} />
         <Kpi label="Daily Upkeep" value={`${formatMoney(dailyUpkeep)}/day`} />
         <Kpi label="Cost / Completed Test" value={costPerTest != null ? formatMoney(costPerTest) : '—'} sub={costPerTest == null ? 'no completed tests yet' : undefined} />
-        <Kpi label="Sim Day" value={state.simClock.day} />
+        <Kpi label="Calendar Week" value={formatCalendarWeek(state.simClock.day)} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -78,7 +79,7 @@ export default function FinancePage() {
             <tbody>
               {recentTransactions.map((t) => (
                 <tr key={t.id} className="border-b border-op-border last:border-b-0">
-                  <td className="px-4.5 py-2.5 text-[11.5px] text-op-text-faint font-mono whitespace-nowrap">Day {t.simDay}</td>
+                  <td className="px-4.5 py-2.5 text-[11.5px] text-op-text-faint font-mono whitespace-nowrap">{formatCalendarWeek(t.simDay)}</td>
                   <td className="px-4.5 py-2.5 text-[12.5px] text-op-text">{t.description}</td>
                   <td className={`px-4.5 py-2.5 text-[12.5px] font-semibold text-right tabular-nums whitespace-nowrap ${t.amount >= 0 ? 'text-op-teal-dim' : 'text-op-text-dim'}`}>
                     {formatMoney(t.amount)}

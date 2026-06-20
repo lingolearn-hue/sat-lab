@@ -10,6 +10,7 @@ import {
   findAvailablePersonnel,
   roomForProcedure,
   TEST_REQUEST_STATUS_LABELS,
+  formatCalendarWeek,
 } from '../../data/selectors.js';
 import BenchStatusCard from './BenchStatusCard.jsx';
 import NewTestRequestModal from './NewTestRequestModal.jsx';
@@ -138,7 +139,7 @@ export default function SchedulingPage() {
                       {TEST_REQUEST_STATUS_LABELS[tr.status]}
                     </span>
                   </td>
-                  <td className="px-4.5 py-3 text-[13px] text-op-text-dim">Day {tr.requestedCompletionDay}</td>
+                  <td className="px-4.5 py-3 text-[13px] text-op-text-dim">{formatCalendarWeek(tr.requestedCompletionDay)}</td>
                   <td className="px-4.5 py-3">
                     <RowAction state={state} dispatch={dispatch} testRequest={tr} execution={execution} timing={timing} benches={roomBenches} />
                   </td>

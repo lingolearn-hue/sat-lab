@@ -1,14 +1,23 @@
-import { Fragment } from 'react';
-import { exportTestReportPdf, exportProjectReportPdf } from '../../data/reportPdf.js';
-import { formatMoney } from '../../data/selectors.js';
+import { Fragment, useState } from 'react';
+import { formatMoney, formatCalendarWeek } from '../../data/selectors.js';
 
 export default function ReportOverlay({ report, onClose }) {
   if (!report) return null;
   const isTest = report.type === 'test';
+  const [downloading, setDownloading] = useState(false);
 
-  function handleDownload() {
-    if (isTest) exportTestReportPdf(report);
-    else exportProjectReportPdf(report);
+  // jsPDF (plus its html2canvas dependency) is one of the heaviest packages in this
+  // app — loaded on demand here instead of bundled into the main chunk, since most
+  // sessions never click Download PDF at all.
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      const { exportTestReportPdf, exportProjectReportPdf } = await import('../../data/reportPdf.js');
+      if (isTest) exportTestReportPdf(report);
+      else exportProjectReportPdf(report);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   function handlePrint() {
@@ -16,10 +25,10 @@ export default function ReportOverlay({ report, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-8 print:bg-white print:p-0" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-8 print:bg-white print:p-0 print:items-start" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-lg w-full max-w-[680px] max-h-[85vh] overflow-y-auto shadow-2xl print:max-h-none print:shadow-none print:rounded-none print:max-w-none"
+        className="bg-white rounded-lg w-full max-w-[680px] max-h-[85vh] overflow-y-auto shadow-2xl print:max-h-none print:shadow-none print:rounded-none print:max-w-none print:overflow-visible"
       >
         <div className="sticky top-0 bg-white border-b border-op-border px-6 py-4 flex items-center justify-between print:hidden">
           <div>
@@ -30,8 +39,8 @@ export default function ReportOverlay({ report, onClose }) {
             <button onClick={handlePrint} className="text-[12.5px] font-semibold text-op-text-dim px-3.5 py-2 rounded-md border border-op-border hover:bg-op-panel-raised">
               Print
             </button>
-            <button onClick={handleDownload} className="text-[12.5px] font-semibold text-white bg-op-teal px-3.5 py-2 rounded-md hover:bg-op-teal-dim">
-              Download PDF
+            <button onClick={handleDownload} disabled={downloading} className="text-[12.5px] font-semibold text-white bg-op-teal px-3.5 py-2 rounded-md hover:bg-op-teal-dim disabled:opacity-60">
+              {downloading ? 'Preparing…' : 'Download PDF'}
             </button>
             <button onClick={onClose} className="text-[20px] text-op-text-faint hover:text-op-text px-2">×</button>
           </div>
@@ -41,7 +50,7 @@ export default function ReportOverlay({ report, onClose }) {
           <div className="mb-5 pb-4 border-b border-op-border">
             <div className="text-[18px] font-bold text-op-text">Satellite Powertrain Test Department</div>
             <div className="text-[13px] text-op-text-dim mt-0.5">
-              {isTest ? 'Test Report' : 'Project Summary Report'} · {report.reportId} · Generated on simulated Day {report.generatedOnDay}
+              {isTest ? 'Test Report' : 'Project Summary Report'} · {report.reportId} · Generated on simulated {formatCalendarWeek(report.generatedOnDay)}
             </div>
           </div>
 
@@ -65,7 +74,7 @@ function TestReportBody({ report }) {
           ['Laboratory', report.room?.name || '—'],
           ['Bench', `${report.benchType?.name || '—'} (Tier ${report.result.benchTierApplied})`],
           ['Priority', capitalize(report.testRequest.priority)],
-          ['Requested Completion', `Day ${report.testRequest.requestedCompletionDay}`],
+          ['Requested Completion', formatCalendarWeek(report.testRequest.requestedCompletionDay)],
         ]}
       />
 
@@ -94,7 +103,7 @@ function ProjectReportBody({ report }) {
           ['Project', report.project.name],
           ['Customer', report.project.customer],
           ['Status', capitalize(report.project.status)],
-          ['Due Day', `Day ${report.project.dueDate.day}`],
+          ['Due', formatCalendarWeek(report.project.dueDate.day)],
           ['Budget', formatMoney(report.project.budget)],
           ['Devices Under Test', String(report.duts.length)],
         ]}

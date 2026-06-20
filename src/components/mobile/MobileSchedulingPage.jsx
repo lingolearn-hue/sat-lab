@@ -10,6 +10,7 @@ import {
   roomForProcedure,
   formatHoursMinutes,
   TEST_REQUEST_STATUS_LABELS,
+  formatCalendarWeek,
 } from '../../data/selectors.js';
 import { getSchedulingAction } from '../operate/SchedulingPage.jsx';
 import NewTestRequestModal from '../operate/NewTestRequestModal.jsx';
@@ -89,7 +90,7 @@ export default function MobileSchedulingPage() {
               <div className="text-[12.5px] text-op-text-dim mb-1">{procedure?.name}</div>
               <div className="flex items-center justify-between text-[11px] text-op-text-faint mb-2.5">
                 <span>{room?.name || 'Unassigned lab'}</span>
-                <span>Due Day {tr.requestedCompletionDay}</span>
+                <span>Due {formatCalendarWeek(tr.requestedCompletionDay)}</span>
               </div>
               {timing && !timing.isDue && (
                 <div className="font-mono text-[12px] text-op-teal-dim mb-2.5 tabular-nums">⏱ {formatHoursMinutes(timing.minutesRemaining)} remaining</div>

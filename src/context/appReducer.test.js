@@ -1,0 +1,352 @@
+import { describe, it, expect } from 'vitest';
+import { appReducer } from '../context/appReducer.js';
+import { createInitialState } from '../data/seed.js';
+
+// All tests start from a fresh copy of the real seed data — same starting point
+// every manual regression check in this project has used, so these tests exercise
+// exactly the scenarios that have actually mattered during development.
+function freshState() {
+  return createInitialState();
+}
+
+// Creates a fresh, approved (not yet scheduled) Ion Propulsion test request,
+// since every seeded request in tr-0233's family already has a status that
+// doesn't suit "about to be scheduled" tests. Returns { state, testRequestId }.
+function freshApprovedRequest(state) {
+  const before = state.testRequests.map((tr) => tr.id);
+  const submitted = appReducer(state, {
+    type: 'SUBMIT_TEST_REQUEST',
+    projectId: 'proj-sat004',
+    dutId: 'dut-xr5',
+    procedure: 'lifetime',
+    priority: 'low',
+    requestedCompletionDay: 28,
+  });
+  const tr = submitted.testRequests.find((t) => !before.includes(t.id));
+  const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: tr.id });
+  return { state: approved, testRequestId: tr.id };
+}
+
+describe('appReducer — role and clock', () => {
+  it('SET_ROLE updates currentRole', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SET_ROLE', role: 'operator' });
+    expect(next.currentRole).toBe('operator');
+  });
+
+  it('TOGGLE_CLOCK_RUNNING flips the running flag', () => {
+    const state = freshState();
+    const wasRunning = state.simClock.running;
+    const next = appReducer(state, { type: 'TOGGLE_CLOCK_RUNNING' });
+    expect(next.simClock.running).toBe(!wasRunning);
+  });
+
+  it('TICK_CLOCK does not create an audit log entry (excluded action)', () => {
+    const state = freshState();
+    const before = state.auditLog.length;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 30 });
+    expect(next.auditLog.length).toBe(before);
+  });
+
+  it('TICK_CLOCK advances sim time correctly across an hour boundary', () => {
+    const state = freshState();
+    state.simClock.hour = 9;
+    state.simClock.minute = 50;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 20 });
+    expect(next.simClock.hour).toBe(10);
+    expect(next.simClock.minute).toBe(10);
+  });
+
+  it('every other dispatched action creates exactly one audit log entry', () => {
+    const state = freshState();
+    const before = state.auditLog.length;
+    const next = appReducer(state, { type: 'SET_ROLE', role: 'operator' });
+    expect(next.auditLog.length).toBe(before + 1);
+    expect(next.auditLog[next.auditLog.length - 1].actionType).toBe('SET_ROLE');
+  });
+});
+
+describe('appReducer — bench install/upgrade economy', () => {
+  it('INSTALL_BENCH deducts the correct cost and adds a bench in idle status', () => {
+    const state = freshState();
+    const budgetBefore = state.facility.budget;
+    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+
+    const installed = next.benches.find((b) => !state.benches.some((sb) => sb.id === b.id));
+
+    expect(installed).toBeDefined();
+    expect(installed.status).toBe('idle'); // regression guard: this exact bug shipped once before
+    expect(installed.tier).toBe(1);
+    expect(next.facility.budget).toBe(budgetBefore - 18000); // component bench base cost
+  });
+
+  it('INSTALL_BENCH refuses when the room is already full', () => {
+    const state = freshState();
+    const room = state.rooms.find((r) => r.id === 'room-ipl');
+    let s = state;
+    const startCount = s.benches.filter((b) => b.roomId === 'room-ipl').length;
+    for (let i = startCount; i < room.maxSlots; i++) {
+      s = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    }
+    const fullCount = s.benches.filter((b) => b.roomId === 'room-ipl').length;
+    expect(fullCount).toBe(room.maxSlots);
+
+    const budgetBeforeOverfill = s.facility.budget;
+    const attemptOverfill = appReducer(s, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    expect(attemptOverfill.benches.filter((b) => b.roomId === 'room-ipl').length).toBe(room.maxSlots);
+    expect(attemptOverfill.facility.budget).toBe(budgetBeforeOverfill);
+  });
+
+  it('INSTALL_BENCH refuses when budget is insufficient', () => {
+    const state = freshState();
+    state.facility.budget = 100;
+    const next = appReducer(state, { type: 'INSTALL_BENCH', roomId: 'room-ipl', benchTypeId: 'component' });
+    expect(next.benches.length).toBe(state.benches.length);
+    expect(next.facility.budget).toBe(100);
+  });
+
+  it('UPGRADE_BENCH increases tier and deducts the correct upgrade cost', () => {
+    const state = freshState();
+    const bench = state.benches.find((b) => b.id === 'bnc-ipl-03');
+    const budgetBefore = state.facility.budget;
+    const next = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    const updated = next.benches.find((b) => b.id === 'bnc-ipl-03');
+    expect(updated.tier).toBe(bench.tier + 1);
+    expect(next.facility.budget).toBe(budgetBefore - 9800);
+  });
+
+  it('UPGRADE_BENCH refuses past the bench type max tier', () => {
+    const state = freshState();
+    const afterOnce = appReducer(state, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    const budgetAfterOnce = afterOnce.facility.budget;
+    const afterTwice = appReducer(afterOnce, { type: 'UPGRADE_BENCH', benchId: 'bnc-ipl-03' });
+    const bench = afterTwice.benches.find((b) => b.id === 'bnc-ipl-03');
+    expect(bench.tier).toBe(2);
+    expect(afterTwice.facility.budget).toBe(budgetAfterOnce);
+  });
+
+  it('EXPAND_ROOM increases tier, maxSlots, and upkeep, and deducts cost', () => {
+    const state = freshState();
+    const room = state.rooms.find((r) => r.id === 'room-ipl');
+    const budgetBefore = state.facility.budget;
+    const next = appReducer(state, { type: 'EXPAND_ROOM', roomId: 'room-ipl' });
+    const updated = next.rooms.find((r) => r.id === 'room-ipl');
+    expect(updated.tier).toBe(room.tier + 1);
+    expect(updated.maxSlots).toBe(room.maxSlots + 1);
+    expect(updated.upkeepPerDay).toBeGreaterThan(room.upkeepPerDay);
+    expect(next.facility.budget).toBeLessThan(budgetBefore);
+  });
+});
+
+describe('appReducer — test request workflow', () => {
+  it('SUBMIT_TEST_REQUEST creates a new request with status submitted', () => {
+    const state = freshState();
+    const next = appReducer(state, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr3',
+      procedure: 'endurance',
+      priority: 'normal',
+      requestedCompletionDay: 30,
+    });
+    const created = next.testRequests.find((tr) => !state.testRequests.some((str) => str.id === tr.id));
+    expect(created).toBeDefined();
+    expect(created.status).toBe('submitted');
+  });
+
+  it('APPROVE_TEST_REQUEST moves status from submitted to approved', () => {
+    const state = freshState();
+    const submitted = appReducer(state, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr3',
+      procedure: 'endurance',
+      priority: 'normal',
+      requestedCompletionDay: 30,
+    });
+    const newTr = submitted.testRequests.find((tr) => !state.testRequests.some((str) => str.id === tr.id));
+    const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: newTr.id });
+    expect(approved.testRequests.find((tr) => tr.id === newTr.id).status).toBe('approved');
+  });
+
+  it('SCHEDULE_TEST_REQUEST refuses on a busy bench', () => {
+    const state = freshState();
+    const { state: approved, testRequestId } = freshApprovedRequest(state);
+    // bnc-ipl-01 is running in seed data — scheduling onto it must be refused.
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-01' });
+    expect(next.testRequests.find((t) => t.id === testRequestId).status).toBe('approved');
+    expect(next.benches.find((b) => b.id === 'bnc-ipl-01').currentExecutionId).toBe('exec-0229'); // unchanged
+  });
+
+  it('SCHEDULE_TEST_REQUEST succeeds on an idle bench with available qualified personnel', () => {
+    const state = freshState();
+    const { state: approved, testRequestId } = freshApprovedRequest(state);
+    const scheduled = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03' });
+
+    const tr = scheduled.testRequests.find((t) => t.id === testRequestId);
+    expect(tr.status).toBe('scheduled');
+    expect(tr.assignedBenchId).toBe('bnc-ipl-03');
+    const bench = scheduled.benches.find((b) => b.id === 'bnc-ipl-03');
+    expect(bench.status).toBe('running');
+
+    const execution = scheduled.executions.find((e) => e.testRequestId === testRequestId);
+    expect(execution).toBeDefined();
+    expect(execution.assignedPersonnelId).toBeTruthy();
+  });
+
+  it('SCHEDULE_TEST_REQUEST refuses when every qualified person is already at capacity', () => {
+    const state = freshState();
+    state.executions.push(
+      { id: 'fake-1', testRequestId: 'fake-tr-1', benchId: 'bnc-ipl-01', assignedPersonnelId: 'per-001', phase: 'running', phaseStartedAtSimMinutes: 0, phaseDurationHours: 5, result: null },
+      { id: 'fake-2', testRequestId: 'fake-tr-2', benchId: 'bnc-ipl-01', assignedPersonnelId: 'per-001', phase: 'running', phaseStartedAtSimMinutes: 0, phaseDurationHours: 5, result: null },
+      { id: 'fake-3', testRequestId: 'fake-tr-3', benchId: 'bnc-ipl-01', assignedPersonnelId: 'per-002', phase: 'running', phaseStartedAtSimMinutes: 0, phaseDurationHours: 5, result: null },
+      { id: 'fake-4', testRequestId: 'fake-tr-4', benchId: 'bnc-ipl-01', assignedPersonnelId: 'per-002', phase: 'running', phaseStartedAtSimMinutes: 0, phaseDurationHours: 5, result: null }
+    );
+    const { state: approved, testRequestId } = freshApprovedRequest(state);
+
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03' });
+    // bnc-ipl-03 is idle, but no qualified person has spare capacity — schedule must be refused.
+    expect(next.testRequests.find((t) => t.id === testRequestId).status).toBe('approved');
+    expect(next.benches.find((b) => b.id === 'bnc-ipl-03').status).toBe('idle');
+  });
+
+  it('ADVANCE_EXECUTION_PHASE walks scheduled -> running -> review -> completed, freeing the bench at the end', () => {
+    const initial = freshState();
+    const { state: approved, testRequestId } = freshApprovedRequest(initial);
+    let state = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03' });
+    const execution = state.executions.find((e) => e.testRequestId === testRequestId);
+    expect(execution.phase).toBe('scheduled');
+
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    expect(state.executions.find((e) => e.id === execution.id).phase).toBe('running');
+    expect(state.testRequests.find((tr) => tr.id === testRequestId).status).toBe('running');
+
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    const reviewExec = state.executions.find((e) => e.id === execution.id);
+    expect(reviewExec.phase).toBe('review');
+    expect(reviewExec.result).not.toBeNull();
+
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    const completedExec = state.executions.find((e) => e.id === execution.id);
+    expect(completedExec.phase).toBe('completed');
+    expect(state.testRequests.find((tr) => tr.id === testRequestId).status).toBe('completed');
+    expect(state.benches.find((b) => b.id === 'bnc-ipl-03').status).toBe('idle');
+    expect(state.benches.find((b) => b.id === 'bnc-ipl-03').currentExecutionId).toBeNull();
+  });
+
+  it("completing an execution charges revenue and consumes the room's consumables", () => {
+    const initial = freshState();
+    const { state: approved, testRequestId } = freshApprovedRequest(initial);
+    let state = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03' });
+    const execution = state.executions.find((e) => e.testRequestId === testRequestId);
+    const budgetBefore = state.facility.budget;
+    const xenonBefore = state.consumables.find((c) => c.id === 'xenon_propellant').stock;
+    const calGasBefore = state.consumables.find((c) => c.id === 'calibration_gas').stock;
+
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+
+    expect(state.facility.budget).toBeGreaterThan(budgetBefore);
+    expect(state.consumables.find((c) => c.id === 'xenon_propellant').stock).toBeLessThan(xenonBefore);
+    expect(state.consumables.find((c) => c.id === 'calibration_gas').stock).toBeLessThan(calGasBefore);
+  });
+
+  it('SCHEDULE_TEST_REQUEST refuses a request that is only "submitted", not yet "approved" (regression: this used to silently succeed)', () => {
+    const state = freshState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0403');
+    expect(tr.status).toBe('submitted');
+    const next = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0403', benchId: 'bnc-ctl-02' });
+    expect(next.testRequests.find((t) => t.id === 'tr-0403').status).toBe('submitted');
+    expect(next.executions.some((e) => e.testRequestId === 'tr-0403')).toBe(false);
+  });
+});
+
+describe('appReducer — maintenance, calibration, consumables', () => {
+  it('PERFORM_MAINTENANCE refuses while the bench is running, succeeds once idle', () => {
+    const state = freshState();
+    const runningBench = state.benches.find((b) => b.id === 'bnc-ipl-02');
+    expect(runningBench.status).toBe('running');
+
+    const refused = appReducer(state, { type: 'PERFORM_MAINTENANCE', benchId: 'bnc-ipl-02' });
+    expect(refused.benches.find((b) => b.id === 'bnc-ipl-02').hoursSinceLastMaintenance).toBe(runningBench.hoursSinceLastMaintenance);
+
+    state.benches.find((b) => b.id === 'bnc-ipl-02').status = 'idle';
+    const budgetBefore = state.facility.budget;
+    const next = appReducer(state, { type: 'PERFORM_MAINTENANCE', benchId: 'bnc-ipl-02' });
+    const updated = next.benches.find((b) => b.id === 'bnc-ipl-02');
+    expect(updated.hoursSinceLastMaintenance).toBe(0);
+    expect(next.facility.budget).toBeLessThan(budgetBefore);
+  });
+
+  it('a bench past MAINTENANCE_OVERDUE_HOURS automatically goes out_of_service on tick', () => {
+    const state = freshState();
+    const bench = state.benches.find((b) => b.id === 'bnc-hil-01');
+    bench.status = 'running';
+    bench.hoursSinceLastMaintenance = 395;
+
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 600 });
+    const updated = next.benches.find((b) => b.id === 'bnc-hil-01');
+    expect(updated.hoursSinceLastMaintenance).toBeGreaterThanOrEqual(400);
+    expect(updated.status).toBe('out_of_service');
+  });
+
+  it('REORDER_CONSUMABLE restocks and charges the correct cost', () => {
+    const state = freshState();
+    const before = state.consumables.find((c) => c.id === 'calibration_gas').stock;
+    const budgetBefore = state.facility.budget;
+    const next = appReducer(state, { type: 'REORDER_CONSUMABLE', consumableId: 'calibration_gas' });
+    const after = next.consumables.find((c) => c.id === 'calibration_gas').stock;
+    expect(after).toBe(before + 20);
+    expect(next.facility.budget).toBe(budgetBefore - 3400);
+  });
+
+  it('a low-stock event fires exactly once when stock crosses the threshold downward', () => {
+    let state = freshState();
+    state.consumables.find((c) => c.id === 'hydrazine_propellant').stock = 18;
+    state = appReducer(state, { type: 'APPROVE_TEST_REQUEST', testRequestId: 'tr-0403' });
+    state = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0403', benchId: 'bnc-ctl-02' });
+    const execution = state.executions.find((e) => e.testRequestId === 'tr-0403');
+    expect(execution).toBeDefined();
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    const beforeCount = state.eventFeed.filter((e) => e.message.includes('Hydrazine Propellant stock low')).length;
+    state = appReducer(state, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+
+    const afterCount = state.eventFeed.filter((e) => e.message.includes('Hydrazine Propellant stock low')).length;
+    expect(afterCount).toBe(beforeCount + 1);
+  });
+});
+
+describe('appReducer — daily upkeep and snapshots', () => {
+  it('crossing a day boundary charges upkeep once per day elapsed', () => {
+    const state = freshState();
+    const dailyUpkeep = state.rooms.reduce((sum, r) => sum + r.upkeepPerDay, 0);
+    const budgetBefore = state.facility.budget;
+
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 });
+    expect(next.facility.budget).toBe(budgetBefore - dailyUpkeep);
+  });
+
+  it('crossing a day boundary appends exactly one daily snapshot', () => {
+    const state = freshState();
+    const before = state.dailySnapshots.length;
+    const next = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 });
+    expect(next.dailySnapshots.length).toBe(before + 1);
+  });
+
+  it('LOAD_STATE backfills missing fields for older save files', () => {
+    const state = freshState();
+    const oldSave = { ...state };
+    delete oldSave.auditLog;
+    delete oldSave.consumables;
+    delete oldSave.personnel;
+    delete oldSave.dailySnapshots;
+
+    const next = appReducer(state, { type: 'LOAD_STATE', state: oldSave });
+    expect(next.auditLog).toEqual([]);
+    expect(next.consumables).toEqual([]);
+    expect(next.personnel).toEqual([]);
+    expect(next.dailySnapshots).toEqual([]);
+  });
+});

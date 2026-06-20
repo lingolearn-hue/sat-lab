@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAppState } from '../../context/AppContext.jsx';
 import MobileTopBar from './MobileTopBar.jsx';
 import MobileTabBar from './MobileTabBar.jsx';
@@ -11,12 +11,15 @@ import { ROLE_TABS, ROLE_DEFAULT_MOBILE_PAGE, MOBILE_READY_PAGES } from './mobil
 import OperationsPage from '../operate/OperationsPage.jsx';
 import ProjectsPage from '../operate/ProjectsPage.jsx';
 import LaboratoriesPage from '../operate/LaboratoriesPage.jsx';
-import StatisticsPage from '../operate/StatisticsPage.jsx';
 import AssetsPage from '../operate/AssetsPage.jsx';
 import ConsumablesPage from '../operate/ConsumablesPage.jsx';
 import FinancePage from '../operate/FinancePage.jsx';
 import AuditLogPage from '../operate/AuditLogPage.jsx';
 import PersonnelPage from '../operate/PersonnelPage.jsx';
+
+// recharts is one of the heaviest packages in this app — lazy-loaded here too,
+// same reasoning as OperateShell.jsx.
+const StatisticsPage = lazy(() => import('../operate/StatisticsPage.jsx'));
 
 const DESKTOP_FALLBACK_PAGES = {
   operations: OperationsPage,
@@ -92,7 +95,9 @@ function ScaledFallback({ Component }) {
       </div>
       <div style={{ width: containerWidth, overflow: 'hidden' }}>
         <div style={{ width: DESKTOP_FALLBACK_WIDTH, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <Component />
+          <Suspense fallback={<div className="px-8 py-7 text-[13px] text-op-text-faint">Loading…</div>}>
+            <Component />
+          </Suspense>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import {
   getThroughputByProcedure,
   getProcedure,
   formatMoney,
+  formatCalendarWeek,
 } from '../../data/selectors.js';
 
 const TEAL = '#1E8A7C';
@@ -47,9 +48,9 @@ export default function StatisticsPage() {
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={facilityTrend} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="day" tickFormatter={(d) => `D${d}`} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
+                <XAxis dataKey="day" tickFormatter={(d) => formatCalendarWeek(d)} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip formatter={(v) => `${v}%`} labelFormatter={(d) => `Day ${d}`} contentStyle={tooltipStyle} />
+                <Tooltip formatter={(v) => `${v}%`} labelFormatter={(d) => formatCalendarWeek(d)} contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="utilizationPct" stroke={TEAL} strokeWidth={2} dot={false} name="Utilization %" />
               </LineChart>
             </ResponsiveContainer>
@@ -63,9 +64,9 @@ export default function StatisticsPage() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={facilityTrend} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="day" tickFormatter={(d) => `D${d}`} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
+                <XAxis dataKey="day" tickFormatter={(d) => formatCalendarWeek(d)} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={false} tickLine={false} width={28} />
-                <Tooltip labelFormatter={(d) => `Day ${d}`} contentStyle={tooltipStyle} />
+                <Tooltip labelFormatter={(d) => formatCalendarWeek(d)} contentStyle={tooltipStyle} />
                 <Bar dataKey="testsCompletedThatDay" fill={TEAL} radius={[3, 3, 0, 0]} name="Tests Completed" />
               </BarChart>
             </ResponsiveContainer>
@@ -180,9 +181,9 @@ function RoomDrilldownOverlay({ room, trend, onClose }) {
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={trend} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="day" tickFormatter={(d) => `D${d}`} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
+                <XAxis dataKey="day" tickFormatter={(d) => formatCalendarWeek(d)} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={{ stroke: GRID }} tickLine={false} />
                 <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9AA1AB' }} axisLine={false} tickLine={false} width={32} />
-                <Tooltip formatter={(v) => `${v}%`} labelFormatter={(d) => `Day ${d}`} contentStyle={tooltipStyle} />
+                <Tooltip formatter={(v) => `${v}%`} labelFormatter={(d) => formatCalendarWeek(d)} contentStyle={tooltipStyle} />
                 <Line type="monotone" dataKey="utilizationPct" stroke={TEAL} strokeWidth={2} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>

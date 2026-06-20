@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { formatMoney } from './selectors.js';
+import { formatMoney, formatCalendarWeek } from './selectors.js';
 
 const MARGIN = 18;
 const PAGE_WIDTH = 210; // A4 mm
@@ -19,7 +19,7 @@ export function exportTestReportPdf(report) {
     ['Laboratory', report.room?.name || '—'],
     ['Bench', `${report.benchType?.name || '—'} (Tier ${report.result.benchTierApplied})`],
     ['Priority', capitalize(report.testRequest.priority)],
-    ['Requested Completion', `Day ${report.testRequest.requestedCompletionDay}`],
+    ['Requested Completion', formatCalendarWeek(report.testRequest.requestedCompletionDay)],
   ]);
 
   y += 4;
@@ -53,7 +53,7 @@ export function exportProjectReportPdf(report) {
     ['Project', report.project.name],
     ['Customer', report.project.customer],
     ['Status', capitalize(report.project.status)],
-    ['Due Day', `Day ${report.project.dueDate.day}`],
+    ['Due', formatCalendarWeek(report.project.dueDate.day)],
     ['Budget', formatMoney(report.project.budget)],
     ['Devices Under Test', String(report.duts.length)],
   ]);
@@ -113,7 +113,7 @@ function drawHeader(doc, y, title, reportId, generatedOnDay) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(120, 120, 120);
-  doc.text(`${reportId}  ·  Generated on simulated Day ${generatedOnDay}`, MARGIN, y);
+  doc.text(`${reportId}  ·  Generated on simulated ${formatCalendarWeek(generatedOnDay)}`, MARGIN, y);
   y += 4;
   doc.setDrawColor(210, 210, 210);
   doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);

@@ -1,5 +1,5 @@
 import { useAppState, useAppDispatch, useSaveLoad } from '../../context/AppContext.jsx';
-import { formatMoney } from '../../data/selectors.js';
+import { formatMoney, formatCalendarWeek } from '../../data/selectors.js';
 import { useRef, useState } from 'react';
 
 const ROLES = {
@@ -75,7 +75,7 @@ export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange 
       <div className={`flex items-center gap-2 text-[13px] ${theme.chipBg} border ${theme.chipBorder} rounded-md px-3 py-1.5 ${theme.textDim}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${theme.dotColor} animate-pulse-dot`} />
         <span className="tabular-nums">
-          Day {state.simClock.day} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')} · ×{state.simClock.speedMultiplier}
+          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')} · ×{state.simClock.speedMultiplier}
         </span>
         <button
           onClick={() => dispatch({ type: 'TOGGLE_CLOCK_RUNNING' })}

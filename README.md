@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 11** — Real mobile redesign (first pass): manual Desktop/Mobile toggle in the top bar, bottom-tab navigation per role, purpose-built mobile layouts for Dashboard and Scheduling, scaled-desktop fallback (clearly labeled) for every other page.
+**Version 12** — Technical debt pass (automated test suite, bundle-size code-splitting, print stylesheet fix) plus a calendar-week date system: every date in the app now displays as CW{week}.{day-of-week} instead of "Day N".
 
 ## What this is
 
@@ -20,6 +20,21 @@ npm run preview   # serve the production build locally
 ```
 
 A pre-built `dist/` folder is included in this zip so you can preview without running `npm install` first — just open a static server on `dist/` (e.g. `npx serve dist`), or open `dist/index.html` directly for a quick look (some browsers restrict ES module loading from `file://`, so a local server is more reliable).
+
+## Testing
+
+```bash
+npm test          # Vitest — 62 unit tests on the reducer, selectors, and result engine
+npm run test:watch  # same, in watch mode
+npm run test:ui     # Vitest's browser UI
+npm run test:e2e    # Playwright — 8 end-to-end tests against a real built+served app
+```
+
+**Unit tests** (`src/**/*.test.js`, Vitest, no browser) cover the highest-value, highest-bug-rate code in this project: the reducer's action handlers (install/upgrade economy, the full test-request workflow, maintenance/calibration, consumables, daily upkeep), the deterministic result engine, and the trickier derived-data selectors (maintenance state, the channel map, personnel capacity). Writing these surfaced one real bug — `SCHEDULE_TEST_REQUEST` didn't actually check that a test request was `approved` before scheduling it, only that the bench was free, so a `submitted` request could silently skip the Approve step. That's now fixed and has a regression test.
+
+**E2E tests** (`e2e/critical-flows.spec.js`, Playwright) drive a real browser against the actual built app — the same kind of checks this project ran manually, by hand, every single session up to this point. They cover: the Build-mode install/upgrade economy, the building/floor navigation, the test-request submission flow, the personnel-capacity scheduling block, role switching, and a save-file round-trip.
+
+**A note on this sandbox specifically**: this development environment has no network access to `playwright.dev`, so `npx playwright install` can't fetch its pinned browser revision. `playwright.config.js` supports an optional `PLAYWRIGHT_CHROMIUM_PATH` environment variable to point at an already-installed Chromium binary instead — only needed in offline/sandboxed setups like this one. On a normal development machine, leave it unset and `npx playwright install` works as usual.
 
 ## Deploying to GitHub Pages
 
@@ -66,6 +81,9 @@ to the overview screen at any time.
 - **Building switcher** (new): Build mode now has a 2-tier navigation — a Facility Overview entry screen (5 compact cards: Floors A1/A2/A3 stacked under Building A, B and C beside them on desktop) and a building/floor detail screen showing every room on that floor at once. Prev/next arrows cycle through all 5 units in a fixed order with wraparound; "← Overview" returns to the entry screen at any time.
 - **Desktop/Mobile toggle** (updated): the top bar now has an explicit Desktop/Mobile switch. Choosing **Desktop** always renders the complete desktop layout, auto-scaled via CSS transform if the screen is small (this is the old automatic zoom-fit, now an explicit choice rather than forced). Choosing **Mobile** switches to the real mobile layout below. The app still auto-picks Mobile on first load if the viewport is under 860px wide, but the person can switch either way at any time and the full desktop UI remains reachable and complete on any screen size.
 - **Real mobile layout** (new, first pass): bottom-tab navigation per role (Operator: 4 tabs, no overflow; Test Engineer and Laboratory Manager: 4 primary tabs + a "More" slide-up sheet for the rest), a condensed top bar, and purpose-built mobile-native layouts for **Dashboard** and **Scheduling** (stacked cards, large tap targets, native text size — not scaled-down desktop). Every other page renders via a scaled-desktop fallback, clearly labeled in-app ("Desktop layout, scaled to fit — a mobile-optimized version of this page is planned") so it's never ambiguous which pages have a real mobile treatment yet.
+- **Code-splitting** (new): jsPDF (and its `html2canvas` dependency) and recharts — the two heaviest packages in this app — are now lazy-loaded via dynamic `import()` and `React.lazy`, instead of bundled into the initial page load. The main JS chunk dropped from ~1.1MB to ~330KB; the PDF and Statistics chunks now only load when a person actually clicks Download PDF or opens Statistics.
+- **Print stylesheet verified** (was parked since early versions): confirmed via Playwright's print-media emulation that the report overlay prints cleanly — app chrome (sidebar, top bar, dimmed backdrop, buttons) is hidden, only the report content shows. Found and fixed one real layout bug in the process (the print view was vertically centering content, leaving a large empty margin at the top of the printed page).
+- **Calendar week date system** (new): every date shown to the person now reads as `CW{week}.{day-of-week}` — e.g. day 23 displays as `CW4.2` — instead of the old "Day N" format. This is purely a display change: `simClock.day` internally is still a plain absolute day counter (day 1, 2, 3, ...), so no reducer logic, saved-game data, or test assertions about day numbers needed to change — only `formatCalendarWeek()` in `selectors.js` and every UI site that displayed a day got updated to call it. Covers the top bar, Projects, Scheduling, Assets, Finance, Audit Log, Statistics (including chart axis labels/tooltips), the New Test Request modal (shows a live CW preview next to the day-number input), the report overlay, and the downloadable PDF.
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
@@ -105,16 +123,14 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 5. **Channel statuses are deterministic, not simulated per-channel physics.**
 6. **Maintenance/calibration actions are instant**, not timer-gated like test execution phases.
 7. **Report narratives are templated, not LLM-generated.**
-8. **Bundle size**: now over 1MB after jsPDF + recharts. Code-splitting still on the backlog.
-9. **Revenue billing rate ($145/hour of bench cycle time) is a simple flat placeholder.**
-10. **No randomness in test results** (deferred by design).
-11. **The Audit Log records mechanism, not compliance.** It's an honest implementation of "append-only action history with export," which is the real mechanism behind audit trails. It deliberately does NOT include e-signatures, user authentication, or any "this record is regulator-compliant" claim — those would misrepresent what a browser-based mockup can actually guarantee. Responsibility for what's on record rests with whoever took the action.
-12. **Consumable stock changes aren't retroactively reflected in past Daily Snapshots** — Statistics trend history captures utilization/throughput only, not inventory levels over time.
-13. No automated test suite — verification has been manual/scripted browser interaction during development.
-14. **Print stylesheet for reports is written but not yet visually confirmed** in a real print preview (still parked).
-15. **Only Dashboard and Scheduling have a real mobile layout so far.** Every other page (Operations, Projects, Laboratories, Statistics, Assets, Consumables, Personnel, Finance, Audit Log) renders via a scaled-down desktop fallback in Mobile mode — usable, clearly labeled as such in-app, but not yet touch-optimized (small text, small tap targets). Build mode has no mobile treatment at all yet; switching to Mobile view only affects Operate mode.
-16. **Real touch-gesture scrolling hasn't been confirmed on an actual physical device.** Scroll mechanics were verified via mouse-wheel and programmatic scroll in this sandboxed testing environment; native touch-scroll on a real phone should work the same way (transforms don't interfere with it) but hasn't been directly tested.
-17. **The Desktop/Mobile toggle is per-session, not persisted.** Reloading the page re-evaluates the viewport width and may reset to the auto-picked mode rather than remembering an explicit manual choice.
+8. **Revenue billing rate ($145/hour of bench cycle time) is a simple flat placeholder.**
+9. **No randomness in test results** (deferred by design).
+10. **The Audit Log records mechanism, not compliance.** It's an honest implementation of "append-only action history with export," which is the real mechanism behind audit trails. It deliberately does NOT include e-signatures, user authentication, or any "this record is regulator-compliant" claim — those would misrepresent what a browser-based mockup can actually guarantee. Responsibility for what's on record rests with whoever took the action.
+11. **Consumable stock changes aren't retroactively reflected in past Daily Snapshots** — Statistics trend history captures utilization/throughput only, not inventory levels over time.
+12. **Test coverage is real but not exhaustive.** 62 unit tests + 8 E2E tests cover the reducer, result engine, key selectors, and the highest-value user flows — but most UI components (especially the mobile pages and the report/PDF rendering itself) have no direct test coverage yet.
+13. **Only Dashboard and Scheduling have a real mobile layout so far.** Every other page (Operations, Projects, Laboratories, Statistics, Assets, Consumables, Personnel, Finance, Audit Log) renders via a scaled-down desktop fallback in Mobile mode — usable, clearly labeled as such in-app, but not yet touch-optimized (small text, small tap targets). Build mode has no mobile treatment at all yet; switching to Mobile view only affects Operate mode.
+14. **Real touch-gesture scrolling hasn't been confirmed on an actual physical device.** Scroll mechanics were verified via mouse-wheel and programmatic scroll in this sandboxed testing environment; native touch-scroll on a real phone should work the same way (transforms don't interfere with it) but hasn't been directly tested.
+15. **The Desktop/Mobile toggle is per-session, not persisted.** Reloading the page re-evaluates the viewport width and may reset to the auto-picked mode rather than remembering an explicit manual choice.
 
 ## Project structure
 
@@ -124,7 +140,8 @@ src/
                qualification domains + capacity), seed.js (initial state — 3 buildings (5 building/floor units), 16 rooms, 4 projects,
                consumables stock, personnel roster), selectors.js (derived data + finance + maintenance +
                channel + statistics + personnel-capacity helpers, incl. roomForProcedure — shared by desktop
-               and mobile Scheduling views so they never drift apart), reports.js (report content builder),
+               and mobile Scheduling views so they never drift apart, and formatCalendarWeek — the single
+               source of truth for the CW{week}.{day} date display format used everywhere), reports.js (report content builder),
                reportPdf.js (jsPDF export)
   engine/      testResults.js (deterministic scoring — covers all 4 interactive rooms' procedures)
   context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions,
@@ -145,6 +162,10 @@ src/
     build/     BuildShell (overview/building-detail navigation, arrow cycling across 5 units),
                FacilityOverviewScreen (new — 5-card entry screen), BenchTile (channel map for fuel cell benches),
                BuildPanel (room-scoped catalog), FacilityMap (superseded, unused — see Planned Next)
+
+e2e/           critical-flows.spec.js — Playwright E2E tests
+*.test.js      co-located next to the file they test (appReducer.test.js, selectors.test.js, testResults.test.js)
+vitest.config.js, playwright.config.js — test runner configuration
 ```
 
 ## Planned next (per latest discussion)

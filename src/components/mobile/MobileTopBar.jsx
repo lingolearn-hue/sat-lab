@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch, useSaveLoad } from '../../context/AppContext.jsx';
-import { formatMoney } from '../../data/selectors.js';
+import { formatMoney, formatCalendarWeek } from '../../data/selectors.js';
 
 const ROLES = {
   operator: { label: 'Operator', initials: 'OP' },
@@ -21,7 +21,7 @@ export default function MobileTopBar({ onViewModeChange }) {
         <div className="w-1.5 h-1.5 rounded-full bg-op-teal flex-shrink-0" />
         <div className="text-[11px] font-bold text-op-text truncate flex-1">SAT POWERTRAIN DEPT</div>
         <div className="text-[11px] font-semibold text-op-text-dim tabular-nums whitespace-nowrap">
-          D{state.simClock.day} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')}
+          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')}
         </div>
         <div className="text-[11px] font-bold text-op-teal-dim tabular-nums whitespace-nowrap">
           {formatMoney(state.facility.budget)}

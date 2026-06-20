@@ -1,5 +1,5 @@
 import { useAppState } from '../../context/AppContext.jsx';
-import { getBenchUtilization, formatMoney } from '../../data/selectors.js';
+import { getBenchUtilization, formatMoney, formatCalendarWeek } from '../../data/selectors.js';
 
 export default function DashboardPage() {
   const state = useAppState();
@@ -24,7 +24,7 @@ export default function DashboardPage() {
         <Kpi label="Active Projects" value={activeProjects} />
         <Kpi label="Budget" value={formatMoney(state.facility.budget)} />
         <Kpi label="Personnel Utilization" value="—" sub="not tracked in v1" />
-        <Kpi label="Sim Day" value={state.simClock.day} />
+        <Kpi label="Calendar Week" value={formatCalendarWeek(state.simClock.day)} />
       </div>
 
       <div className="bg-op-panel border border-op-border rounded-lg overflow-hidden">

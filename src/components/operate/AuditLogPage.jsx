@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppState } from '../../context/AppContext.jsx';
+import { formatCalendarWeek } from '../../data/selectors.js';
 
 export default function AuditLogPage() {
   const state = useAppState();
@@ -48,8 +49,8 @@ export default function AuditLogPage() {
       <div className="grid grid-cols-4 gap-3 mb-6">
         <Kpi label="Total Entries" value={auditLog.length} />
         <Kpi label="Capacity" value="2,000" sub="oldest entries roll off past this" />
-        <Kpi label="Oldest Entry" value={auditLog[0] ? `Day ${auditLog[0].simDay}` : '—'} />
-        <Kpi label="Latest Entry" value={auditLog.length ? `Day ${auditLog[auditLog.length - 1].simDay}` : '—'} />
+        <Kpi label="Oldest Entry" value={auditLog[0] ? formatCalendarWeek(auditLog[0].simDay) : '—'} />
+        <Kpi label="Latest Entry" value={auditLog.length ? formatCalendarWeek(auditLog[auditLog.length - 1].simDay) : '—'} />
       </div>
 
       <div className="flex gap-3 mb-4">
@@ -88,7 +89,7 @@ export default function AuditLogPage() {
               <tr key={entry.id} className="border-b border-op-border last:border-b-0">
                 <td className="px-4.5 py-2.5 font-mono text-[11.5px] text-op-text-faint">{entry.seq}</td>
                 <td className="px-4.5 py-2.5 font-mono text-[11.5px] text-op-text-dim whitespace-nowrap">
-                  D{entry.simDay} {String(entry.simHour).padStart(2, '0')}:{String(entry.simMinute).padStart(2, '0')}
+                  {formatCalendarWeek(entry.simDay)} {String(entry.simHour).padStart(2, '0')}:{String(entry.simMinute).padStart(2, '0')}
                 </td>
                 <td className="px-4.5 py-2.5 text-[11.5px] text-op-text-dim capitalize whitespace-nowrap">{entry.role?.replace('_', ' ')}</td>
                 <td className="px-4.5 py-2.5 font-mono text-[10.5px] text-op-text-faint whitespace-nowrap">{entry.actionType}</td>

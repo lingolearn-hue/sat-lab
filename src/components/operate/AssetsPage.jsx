@@ -1,5 +1,5 @@
 import { useAppState } from '../../context/AppContext.jsx';
-import { getBenchType, getRoom, formatMoney } from '../../data/selectors.js';
+import { getBenchType, getRoom, formatMoney, formatCalendarWeek } from '../../data/selectors.js';
 
 const STATUS_LABELS = {
   running: 'Running',
@@ -62,7 +62,7 @@ export default function AssetsPage() {
                   <td className="px-4.5 py-3 text-[13px] text-op-text">{benchType?.name || bench.benchTypeId}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text-dim">{room?.name}</td>
                   <td className="px-4.5 py-3 text-[12.5px] text-op-text-dim">T{bench.tier}</td>
-                  <td className="px-4.5 py-3 text-[13px] text-op-text-dim">Day {bench.purchaseDate.day}</td>
+                  <td className="px-4.5 py-3 text-[13px] text-op-text-dim">{formatCalendarWeek(bench.purchaseDate.day)}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text-dim tabular-nums">{formatMoney(bench.purchaseCost)}</td>
                   <td className="px-4.5 py-3 text-[12.5px] text-op-text-dim tabular-nums">
                     {bench.hoursUsed.toLocaleString()}h

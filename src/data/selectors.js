@@ -11,6 +11,18 @@ export function getRoom(state, roomId) {
   return state.rooms.find((r) => r.id === roomId);
 }
 
+// ---- Calendar week date display ----
+// simClock.day stays a plain absolute day counter internally (day 1, 2, 3, ...) —
+// nothing in the reducer or saved state changes. This is purely a display format:
+// CW{week}.{dayOfWeek}, where day 1 = CW1.1 and a 7-day week rolls over to the next
+// CW. Used everywhere a day number is shown to the person, instead of "Day N".
+export function formatCalendarWeek(day) {
+  const safeDay = Math.max(1, Math.floor(day));
+  const week = Math.floor((safeDay - 1) / 7) + 1;
+  const dayOfWeek = ((safeDay - 1) % 7) + 1;
+  return `CW${week}.${dayOfWeek}`;
+}
+
 export function getBuilding(state, buildingId) {
   return state.buildings.find((b) => b.id === buildingId);
 }

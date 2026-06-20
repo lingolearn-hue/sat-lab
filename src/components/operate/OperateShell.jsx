@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import SideNav, { ROLE_NAV_IDS, ROLE_DEFAULT_PAGE } from './SideNav.jsx';
 import DashboardPage from './DashboardPage.jsx';
 import OperationsPage from './OperationsPage.jsx';
 import SchedulingPage from './SchedulingPage.jsx';
 import ProjectsPage from './ProjectsPage.jsx';
 import LaboratoriesPage from './LaboratoriesPage.jsx';
-import StatisticsPage from './StatisticsPage.jsx';
 import AssetsPage from './AssetsPage.jsx';
 import ConsumablesPage from './ConsumablesPage.jsx';
 import FinancePage from './FinancePage.jsx';
@@ -14,6 +13,10 @@ import PersonnelPage from './PersonnelPage.jsx';
 import StubPage from './StubPage.jsx';
 import { useAppState } from '../../context/AppContext.jsx';
 import { getBenchesForRoom } from '../../data/selectors.js';
+
+// recharts is one of the heaviest packages in this app — lazy-loaded so it's
+// only fetched when someone actually opens Statistics, not on initial load.
+const StatisticsPage = lazy(() => import('./StatisticsPage.jsx'));
 
 export default function OperateShell() {
   const state = useAppState();
@@ -48,7 +51,11 @@ export default function OperateShell() {
         {activePage === 'scheduling' && <SchedulingPage />}
         {activePage === 'projects' && <ProjectsPage />}
         {activePage === 'laboratories' && <LaboratoriesPage />}
-        {activePage === 'statistics' && <StatisticsPage />}
+        {activePage === 'statistics' && (
+          <Suspense fallback={<PageLoadingFallback />}>
+            <StatisticsPage />
+          </Suspense>
+        )}
         {activePage === 'assets' && <AssetsPage />}
         {activePage === 'consumables' && <ConsumablesPage />}
         {activePage === 'finance' && <FinancePage />}
@@ -57,4 +64,8 @@ export default function OperateShell() {
       </div>
     </div>
   );
+}
+
+function PageLoadingFallback() {
+  return <div className="px-8 py-7 text-[13px] text-op-text-faint">Loading…</div>;
 }

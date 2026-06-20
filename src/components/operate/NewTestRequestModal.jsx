@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
 import { PROCEDURES } from '../../data/catalog.js';
+import { formatCalendarWeek } from '../../data/selectors.js';
 
 export default function NewTestRequestModal({ room, onClose }) {
   const state = useAppState();
@@ -78,7 +79,7 @@ export default function NewTestRequestModal({ room, onClose }) {
                 <option value="high">High</option>
               </select>
             </Field>
-            <Field label="Requested Completion (Day)">
+            <Field label={`Requested Completion (${formatCalendarWeek(Number(dueDay) || state.simClock.day)})`}>
               <input
                 type="number"
                 value={dueDay}

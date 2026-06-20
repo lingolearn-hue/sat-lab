@@ -315,6 +315,9 @@ function updateTestRequestStatus(state, testRequestId, status) {
 
 function scheduleTestRequest(state, action) {
   const { testRequestId, benchId } = action;
+  const testRequest = state.testRequests.find((tr) => tr.id === testRequestId);
+  if (!testRequest || testRequest.status !== 'approved') return state; // enforce Approved -> Scheduled order
+
   const bench = state.benches.find((b) => b.id === benchId);
   if (!bench || bench.status !== 'idle') return state;
 
