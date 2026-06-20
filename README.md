@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 8** — Personnel module: staffed roster across the 4 interactive labs, qualification-based capacity constraints that can block scheduling independently of bench availability
+**Version 9** — Building switcher: Building A restructured into 3 floors (A1/A2/A3), new Facility Overview entry screen, prev/next arrow navigation between all 5 buildings/floors
 
 ## What this is
 
@@ -25,6 +25,28 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 
 `vite.config.js` uses `base: './'` (relative paths), so the build works under any repo name/path without edits. This repo includes `.github/workflows/deploy.yml`, which builds and deploys to GitHub Pages automatically on every push to `main` (requires Pages enabled with "GitHub Actions" as the build source, in repo Settings → Pages).
 
+## Facility structure
+
+```
+Satellite Powertrain Test Department
+├── Building A — Electric Propulsion Test Center
+│   ├── Floor A1: Ion Propulsion Lab ★, Solar Array Lab, Satellite Integration Lab
+│   ├── Floor A2: Fuel Cell Power System Lab ★, Thermal Qualification Lab ★
+│   └── Floor A3: Hardware-in-the-Loop Lab, Software-in-the-Loop Lab, Office
+├── Building B — Chemical Propulsion Center
+│   └── Chemical Thruster Lab ★, Propellant System Lab, Propulsion System Integration Lab
+└── Building C — Safety and Qualification Center
+    └── Preconditioning Lab, Electrical Fault Lab, EMC Lab, Shock and Impact Lab, Fire and Hazard Lab
+```
+★ = fully interactive (install/upgrade economy + real Test Request workflow + personnel staffing).
+Thermal Qualification Lab moved from Building C to Floor A2 in this release — Building C is now 5 rooms, not 6.
+"Office" is a new administrative room on Floor A3 with no benches.
+
+In Build mode: the **Facility Overview** screen shows all 5 buildings/floors as compact cards (A1/A2/A3 stacked
+under Building A, B and C beside them). Click any card to enter its detail view, which shows every room on
+that floor/building at once. Prev/next arrows (‹ ›) cycle through all 5 units in order; "← Overview" returns
+to the overview screen at any time.
+
 ## What's implemented
 
 - Shared state via React Context + useReducer (`src/context/appReducer.js`)
@@ -32,15 +54,16 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 - Real-time accelerated sim clock (1 real second = configurable sim minutes)
 - Full Test Request workflow: Submitted → Approved → Scheduled → Running → Review → Completed, manual phase-advance (no auto-skip)
 - Deterministic test result engine: DUT specs × bench tier, no randomness (`src/engine/testResults.js`)
-- **Three buildings, 15 rooms total**, per the original spec: Building A (Electric Propulsion Test Center, 6 rooms), Building B (Chemical Propulsion Center, 3 rooms), Building C (Safety and Qualification Center, 6 rooms)
+- **Three buildings, 16 rooms total**: Building A (Electric Propulsion Test Center, 8 rooms across 3 floors: A1/A2/A3), Building B (Chemical Propulsion Center, 3 rooms), Building C (Safety and Qualification Center, 5 rooms — Thermal Qualification moved to Floor A2)
 - **Four fully interactive Build-mode rooms** (install/upgrade economy + real test workflow): Ion Propulsion Laboratory, Fuel Cell Power System Laboratory, Chemical Thruster Laboratory, Thermal Qualification Laboratory — one per "family" of test domain, proving the architecture generalizes across propulsion, fuel cell, chemical thruster, and environmental qualification testing
 - The other 11 rooms are real Room/Bench data (purchase cost, hours used, status) shown accurately everywhere — Laboratories page, Statistics page, Build-mode minimap — but without an install/upgrade economy or test-request workflow. Labeled "VIEW ONLY IN V1" in Build mode.
-- Real economy: daily facility upkeep (opex across all 15 rooms), test completion revenue, all flowing through real transactions
+- Real economy: daily facility upkeep (opex across all 16 rooms), test completion revenue, all flowing through real transactions
 - Three roles, fully role-gated nav + default landing page: Operator (Operations), Test Engineer (Projects), Laboratory Manager (Scheduling)
 - Time-based maintenance & calibration lifecycle: running benches accrue wear; overdue maintenance auto-takes a bench out of service; Operator can Perform Maintenance/Calibrate (costs money, blocked mid-test)
 - Report generation: per-test and per-project PDF reports with templated (non-random) narrative text, inline overlay + browser Print + downloadable PDF (jsPDF)
-- Statistics page: facility-wide KPIs, utilization trend over sim-days, daily throughput, live utilization-by-laboratory comparison across all 15 rooms (click to drill into any room's own trend), pass/fail breakdown, throughput-by-procedure
+- Statistics page: facility-wide KPIs, utilization trend over sim-days, daily throughput, live utilization-by-laboratory comparison across all 16 rooms (click to drill into any room's own trend), pass/fail breakdown, throughput-by-procedure
 - Channel-level fuel cell visualization: Fuel Cell Stack Benches render every individual channel (96 at Tier 1, 192 at Tier 2) as a colored square grouped in sixes, derived deterministically from the bench's real status/maintenance state
+- **Building switcher** (new): Build mode now has a 2-tier navigation — a Facility Overview entry screen (5 compact cards: Floors A1/A2/A3 stacked under Building A, B and C beside them on desktop) and a building/floor detail screen showing every room on that floor at once. Prev/next arrows cycle through all 5 units in a fixed order with wraparound; "← Overview" returns to the entry screen at any time.
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
 - **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
@@ -73,8 +96,8 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 
 ## Known gaps / things to know before you click around
 
-1. **11 of 15 rooms are view-only in Build mode.** Only Ion Propulsion, Fuel Cell Power System, Chemical Thruster, and Thermal Qualification labs have a real install/upgrade economy and test workflow. The rest show accurate Room/Bench data everywhere but can't be built on yet.
-2. **No building-level switcher/tab yet.** Build mode's primary room-picker is still the facility minimap (grouped by building) rather than a dedicated building tab — by design for this round, per discussion.
+1. **12 of 16 rooms are view-only in Build mode.** Only Ion Propulsion, Fuel Cell Power System, Chemical Thruster, and Thermal Qualification labs have a real install/upgrade economy and test workflow. The rest show accurate Room/Bench data everywhere but can't be built on yet.
+2. **Building A's "3 floors" is a v1-specific reframing, not in the original lab spec.** The original spec describes Building A as one flat building with 6 labs; this release splits it into 3 floors per direct discussion, and adds a new "Office" room with no real-world spec basis. Buildings B and C are unchanged from the original spec except that Thermal Qualification Laboratory physically moved from C to Floor A2.
 3. **Personnel is a fixed roster, no hiring mechanic.** The spec mentions "Personnel hiring" as a future simulation concept; for v1 the roster is seeded and static — you can't hire more staff to relieve a capacity bottleneck, only wait for existing assignments to free up. Deliberately deferred per discussion.
 4. **Statistics history starts from zero on a fresh save** — no backfilled fake history.
 5. **Channel statuses are deterministic, not simulated per-channel physics.**
@@ -93,7 +116,7 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 ```
 src/
   data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types,
-               qualification domains + capacity), seed.js (initial state — 3 buildings, 15 rooms, 4 projects,
+               qualification domains + capacity), seed.js (initial state — 3 buildings (5 building/floor units), 16 rooms, 4 projects,
                consumables stock, personnel roster), selectors.js (derived data + finance + maintenance +
                channel + statistics + personnel-capacity helpers), reports.js (report content builder),
                reportPdf.js (jsPDF export)
@@ -105,21 +128,22 @@ src/
   components/
     shared/    TopBar.jsx
     operate/   SideNav (role-gated, 3 roles), DashboardPage, OperationsPage, ProjectsPage (4 projects),
-               SchedulingPage (4-room facility-wide, personnel-aware), LaboratoriesPage (15 rooms, grouped by building),
+               SchedulingPage (4-room facility-wide, personnel-aware), LaboratoriesPage (16 rooms, grouped by building/floor),
                StatisticsPage, AssetsPage, ConsumablesPage, FinancePage, AuditLogPage,
                PersonnelPage (new), ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
-    build/     BuildShell (room navigation across 3 buildings), BenchTile (channel map for fuel cell benches),
-               BuildPanel (room-scoped catalog), FacilityMap (all 15 rooms grouped by building, clickable)
+    build/     BuildShell (overview/building-detail navigation, arrow cycling across 5 units),
+               FacilityOverviewScreen (new — 5-card entry screen), BenchTile (channel map for fuel cell benches),
+               BuildPanel (room-scoped catalog), FacilityMap (superseded, unused — see Planned Next)
 ```
 
 ## Planned next (per latest discussion)
 
-- Building-level switcher/tab for Build mode navigation (currently minimap-only)
 - Mobile/responsive layout — explicitly called for by the spec, zero work done so far
 - Verify print stylesheet output together (parked)
 - Consider code-splitting to address bundle size
 - Possible: timer-gate maintenance/calibration actions
 - Possible: hiring mechanic for Personnel (currently a static roster)
+- The old single-room `FacilityMap.jsx` minimap component is now unused (superseded by `FacilityOverviewScreen.jsx` + the arrow navigation) — left in place but dead code, candidate for removal
 
 
 

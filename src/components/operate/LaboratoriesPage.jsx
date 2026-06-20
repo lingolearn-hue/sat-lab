@@ -16,7 +16,7 @@ export default function LaboratoriesPage() {
         return (
           <div key={building.id} className="mb-7">
             <div className="text-[11px] font-bold text-op-text-faint uppercase tracking-wide mb-3">
-              Building {building.code} — {building.name}
+              {building.parentLabel ? `${building.parentLabel} — ${building.name}` : `Building ${building.code} — ${building.name}`}
             </div>
             <div className="grid grid-cols-2 gap-4">
               {buildingRooms.map((room) => {

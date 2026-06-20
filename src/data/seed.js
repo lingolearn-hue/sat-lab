@@ -34,38 +34,61 @@ export function createInitialState() {
       // even when a bench is free, same way bnc-ipl-02 demonstrates maintenance friction.
     ],
     buildings: [
-      { id: 'bldg-a', name: 'Electric Propulsion Test Center', code: 'A' },
-      { id: 'bldg-b', name: 'Chemical Propulsion Center', code: 'B' },
-      { id: 'bldg-c', name: 'Safety and Qualification Center', code: 'C' },
+      { id: 'bldg-a1', name: 'Floor A1', code: 'A1', parentLabel: 'Building A — Electric Propulsion Test Center' },
+      { id: 'bldg-a2', name: 'Floor A2', code: 'A2', parentLabel: 'Building A — Electric Propulsion Test Center' },
+      { id: 'bldg-a3', name: 'Floor A3', code: 'A3', parentLabel: 'Building A — Electric Propulsion Test Center' },
+      { id: 'bldg-b', name: 'Chemical Propulsion Center', code: 'B', parentLabel: null },
+      { id: 'bldg-c', name: 'Safety and Qualification Center', code: 'C', parentLabel: null },
     ],
     rooms: [
+      // Floor A1 — Ion Propulsion, Solar Array, Satellite Integration
       {
         id: 'room-ipl',
-        buildingId: 'bldg-a',
+        buildingId: 'bldg-a1',
         name: 'Ion Propulsion Laboratory',
         tier: 1,
         maxSlots: 4,
         upkeepPerDay: 640,
       },
       {
-        id: 'room-fcpl',
-        buildingId: 'bldg-a',
-        name: 'Fuel Cell Power System Laboratory',
-        tier: 1,
-        maxSlots: 3,
-        upkeepPerDay: 410,
-      },
-      {
         id: 'room-sal',
-        buildingId: 'bldg-a',
+        buildingId: 'bldg-a1',
         name: 'Solar Array Laboratory',
         tier: 1,
         maxSlots: 2,
         upkeepPerDay: 260,
       },
       {
+        id: 'room-sit',
+        buildingId: 'bldg-a1',
+        name: 'Satellite Integration Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 580,
+      },
+
+      // Floor A2 — Fuel Cell Power System, Thermal Qualification (moved from Building C)
+      {
+        id: 'room-fcpl',
+        buildingId: 'bldg-a2',
+        name: 'Fuel Cell Power System Laboratory',
+        tier: 1,
+        maxSlots: 3,
+        upkeepPerDay: 410,
+      },
+      {
+        id: 'room-tql',
+        buildingId: 'bldg-a2',
+        name: 'Thermal Qualification Laboratory',
+        tier: 1,
+        maxSlots: 3,
+        upkeepPerDay: 560,
+      },
+
+      // Floor A3 — Hardware-in-the-Loop, Software-in-the-Loop, Office
+      {
         id: 'room-hil',
-        buildingId: 'bldg-a',
+        buildingId: 'bldg-a3',
         name: 'Hardware-in-the-Loop Laboratory',
         tier: 1,
         maxSlots: 2,
@@ -73,19 +96,19 @@ export function createInitialState() {
       },
       {
         id: 'room-sil',
-        buildingId: 'bldg-a',
+        buildingId: 'bldg-a3',
         name: 'Software-in-the-Loop Laboratory',
         tier: 1,
         maxSlots: 2,
         upkeepPerDay: 300,
       },
       {
-        id: 'room-sit',
-        buildingId: 'bldg-a',
-        name: 'Satellite Integration Laboratory',
+        id: 'room-office',
+        buildingId: 'bldg-a3',
+        name: 'Office',
         tier: 1,
-        maxSlots: 2,
-        upkeepPerDay: 580,
+        maxSlots: 0, // administrative space — no benches
+        upkeepPerDay: 120,
       },
 
       // Building B — Chemical Propulsion Center
@@ -114,7 +137,7 @@ export function createInitialState() {
         upkeepPerDay: 470,
       },
 
-      // Building C — Safety and Qualification Center
+      // Building C — Safety and Qualification Center (Thermal Qualification moved out to A2)
       {
         id: 'room-pcl',
         buildingId: 'bldg-c',
@@ -146,14 +169,6 @@ export function createInitialState() {
         tier: 1,
         maxSlots: 2,
         upkeepPerDay: 410,
-      },
-      {
-        id: 'room-tql',
-        buildingId: 'bldg-c',
-        name: 'Thermal Qualification Laboratory',
-        tier: 1,
-        maxSlots: 3,
-        upkeepPerDay: 560,
       },
       {
         id: 'room-fhl',

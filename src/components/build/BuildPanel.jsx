@@ -5,6 +5,22 @@ import { formatMoney, getRoomSlotsUsed, getBenchUtilization, getBenchesForRoom }
 export default function BuildPanel({ room, hasEmptySlot, isInteractive }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
+
+  if (room.maxSlots === 0) {
+    return (
+      <div className="bg-bd-panel border-l border-bd-border-dim p-4 overflow-y-auto">
+        <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-3">{room.name}</div>
+        <div className="border border-dashed border-bd-border-dim rounded-[3px] p-4 text-[11.5px] text-bd-text-faint leading-relaxed">
+          Administrative space. No test benches to install or upgrade here.
+        </div>
+        <div className="border-t border-bd-border-dim mt-4 pt-2.5">
+          <div className="text-[11px] text-bd-text-faint uppercase tracking-wide mb-2">Room Stats</div>
+          <StatRow label="Upkeep / day" value={formatMoney(room.upkeepPerDay)} />
+        </div>
+      </div>
+    );
+  }
+
   const slotsUsed = getRoomSlotsUsed(state, room.id);
   const utilization = getBenchUtilization(state, room.id);
 
