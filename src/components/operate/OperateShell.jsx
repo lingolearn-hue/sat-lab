@@ -10,6 +10,7 @@ import AssetsPage from './AssetsPage.jsx';
 import ConsumablesPage from './ConsumablesPage.jsx';
 import FinancePage from './FinancePage.jsx';
 import AuditLogPage from './AuditLogPage.jsx';
+import PersonnelPage from './PersonnelPage.jsx';
 import StubPage from './StubPage.jsx';
 import { useAppState } from '../../context/AppContext.jsx';
 import { getBenchesForRoom } from '../../data/selectors.js';
@@ -52,7 +53,7 @@ export default function OperateShell() {
         {activePage === 'consumables' && <ConsumablesPage />}
         {activePage === 'finance' && <FinancePage />}
         {activePage === 'auditlog' && <AuditLogPage />}
-        {activePage === 'personnel' && <StubPage title="Personnel" note="Staffing and qualifications — planned for a future iteration." />}
+        {activePage === 'personnel' && <PersonnelPage />}
       </div>
     </div>
   );

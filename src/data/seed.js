@@ -23,6 +23,16 @@ export function createInitialState() {
       { id: 'xenon_propellant', stock: 22 },
       { id: 'hydrazine_propellant', stock: 8 }, // intentionally low, near the reorder threshold (15)
     ],
+    personnel: [
+      { id: 'per-001', name: 'Mara Whitfield', qualification: 'ion_propulsion', availability: 'available' },
+      { id: 'per-002', name: 'Devon Okafor', qualification: 'ion_propulsion', availability: 'available' },
+      { id: 'per-003', name: 'Priya Lindqvist', qualification: 'fuel_cell', availability: 'available' },
+      { id: 'per-004', name: 'Theo Castellan', qualification: 'chemical_thruster', availability: 'available' },
+      { id: 'per-005', name: 'Yuki Brennan', qualification: 'thermal_qualification', availability: 'available' },
+      // Only one chemical_thruster-qualified person on staff at cap 4 — deliberately
+      // tight, so the Chemical Thruster Lab can plausibly hit a personnel bottleneck
+      // even when a bench is free, same way bnc-ipl-02 demonstrates maintenance friction.
+    ],
     buildings: [
       { id: 'bldg-a', name: 'Electric Propulsion Test Center', code: 'A' },
       { id: 'bldg-b', name: 'Chemical Propulsion Center', code: 'B' },
@@ -434,6 +444,7 @@ export function createInitialState() {
         id: 'exec-0231',
         testRequestId: 'tr-0231',
         benchId: 'bnc-ipl-02',
+        assignedPersonnelId: 'per-001',
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(13, 22, 0),
         phaseDurationHours: 18,
@@ -443,6 +454,7 @@ export function createInitialState() {
         id: 'exec-0229',
         testRequestId: 'tr-0229',
         benchId: 'bnc-ipl-01',
+        assignedPersonnelId: 'per-001',
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 8, 54),
         phaseDurationHours: 4,
@@ -452,6 +464,7 @@ export function createInitialState() {
         id: 'exec-0301',
         testRequestId: 'tr-0301',
         benchId: 'bnc-fcpl-01',
+        assignedPersonnelId: 'per-003',
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 6, 10),
         phaseDurationHours: 10,
@@ -461,6 +474,7 @@ export function createInitialState() {
         id: 'exec-0401',
         testRequestId: 'tr-0401',
         benchId: 'bnc-ctl-01',
+        assignedPersonnelId: 'per-004',
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 5, 30),
         phaseDurationHours: 7,
@@ -470,6 +484,7 @@ export function createInitialState() {
         id: 'exec-0501',
         testRequestId: 'tr-0501',
         benchId: 'bnc-tql-01',
+        assignedPersonnelId: 'per-005',
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 3, 15),
         phaseDurationHours: 11,

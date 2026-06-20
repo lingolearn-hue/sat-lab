@@ -1,6 +1,6 @@
 # Satellite Powertrain Test Department — LIMS/LOMS Mockup
 
-**Version 7** — Immutable audit log (every dispatched action, CSV/JSON export), consumables/inventory tracking (4 propellant/gas types, automatic consumption on test completion, manual reorder)
+**Version 8** — Personnel module: staffed roster across the 4 interactive labs, qualification-based capacity constraints that can block scheduling independently of bench availability
 
 ## What this is
 
@@ -43,6 +43,7 @@ A pre-built `dist/` folder is included in this zip so you can preview without ru
 - Channel-level fuel cell visualization: Fuel Cell Stack Benches render every individual channel (96 at Tier 1, 192 at Tier 2) as a colored square grouped in sixes, derived deterministically from the bench's real status/maintenance state
 - **Audit Log** (new): every dispatched, state-changing action gets one immutable, append-only entry — role, sim time, real timestamp, and a human-readable summary. No automatic compliance stamps or signatures (deliberately — that would misrepresent what this is); it's a record of what happened, and accountability for it rests with whoever took the action, not with a fake "verified" badge. Capped at 2,000 entries (practical storage limit, not a deliberate truncation), exportable as CSV or JSON. Visible to all three roles.
 - **Consumables / Inventory** (new): 4 tracked items — Calibration Gas and Coolant (shared across multiple interactive rooms), Xenon Propellant (Ion Propulsion-specific), Hydrazine Propellant (Chemical Thruster-specific). Stock is consumed automatically when a test completes in a room that uses that item; a one-time low-stock event fires when stock crosses below the reorder threshold. Manual Reorder action costs money and restocks, flowing into Finance as a real "Consumables" opex category.
+- **Personnel** (new): a small roster across the 4 interactive labs, one qualification domain per person (Ion Propulsion, Fuel Cell, Chemical Thruster, Thermal Qualification). Each domain has a per-person capacity reflecting how hands-on the work is — Chemical Thruster supervision caps at 4 concurrent tests (hazardous/hands-on), Fuel Cell channel monitoring caps at 50 (mostly passive). Scheduling a test now requires BOTH an idle bench AND a qualified person with spare capacity — a bench can be free while every qualified person is at capacity, genuinely blocking the schedule, independent of the bench-availability constraint that already existed.
 - **Scheduling page now spans all 4 interactive rooms** across all 3 buildings — grouped bench status, a Laboratory column, facility-wide KPIs
 - **Projects page now spans all 4 active projects**: SAT-004 (Ion Drive), SAT-005 (Fuel Cell Power), SAT-006 (Chemical Thruster), SAT-007 (Thermal Qualification)
 - Laboratories page, Assets page, Finance page — all real, not stubs, all spanning all 3 buildings (Personnel is the only remaining stub)
@@ -65,7 +66,7 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 | Multi-site / multi-building support | ✅ (added v6) |
 | Audit trail | ✅ (added v7) — immutable, append-only, every dispatched action, CSV/JSON export. No automatic signatures/stamps by design — see Known Gaps. |
 | Inventory/consumables tracking | ✅ (added v7) — 4 tracked consumables, automatic consumption on test completion, manual reorder, real Finance category |
-| Staff/personnel management | ❌ not implemented |
+| Staff/personnel management | ✅ (added v8) — qualification-based capacity constraint that can independently block scheduling, not just a static directory |
 | Document/data integrity (e-signatures, 21 CFR Part 11-style controls) | ❌ deliberately out of scope — see note below |
 | Mobile/responsive access | ❌ not implemented (spec calls for this explicitly) |
 | Instrument data interfacing | ❌ not applicable (no real instruments) |
@@ -74,7 +75,7 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 
 1. **11 of 15 rooms are view-only in Build mode.** Only Ion Propulsion, Fuel Cell Power System, Chemical Thruster, and Thermal Qualification labs have a real install/upgrade economy and test workflow. The rest show accurate Room/Bench data everywhere but can't be built on yet.
 2. **No building-level switcher/tab yet.** Build mode's primary room-picker is still the facility minimap (grouped by building) rather than a dedicated building tab — by design for this round, per discussion.
-3. **Personnel module is entirely absent** (by agreed scope).
+3. **Personnel is a fixed roster, no hiring mechanic.** The spec mentions "Personnel hiring" as a future simulation concept; for v1 the roster is seeded and static — you can't hire more staff to relieve a capacity bottleneck, only wait for existing assignments to free up. Deliberately deferred per discussion.
 4. **Statistics history starts from zero on a fresh save** — no backfilled fake history.
 5. **Channel statuses are deterministic, not simulated per-channel physics.**
 6. **Maintenance/calibration actions are instant**, not timer-gated like test execution phases.
@@ -91,31 +92,34 @@ Cross-referencing what modern LIMS/LOMS platforms typically provide against what
 
 ```
 src/
-  data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types),
-               seed.js (initial state — 3 buildings, 15 rooms, 4 projects, consumables stock),
-               selectors.js (derived data + finance + maintenance + channel + statistics helpers),
-               reports.js (report content builder), reportPdf.js (jsPDF export)
+  data/        catalog.js (bench types, procedures, maintenance thresholds, channel counts, consumable types,
+               qualification domains + capacity), seed.js (initial state — 3 buildings, 15 rooms, 4 projects,
+               consumables stock, personnel roster), selectors.js (derived data + finance + maintenance +
+               channel + statistics + personnel-capacity helpers), reports.js (report content builder),
+               reportPdf.js (jsPDF export)
   engine/      testResults.js (deterministic scoring — covers all 4 interactive rooms' procedures)
   context/     appReducer.js (all state transitions incl. wear accrual, upkeep, revenue, maintenance actions,
-               daily snapshots, consumable consumption/reorder, and the audit-log wrapper around every dispatch),
+               daily snapshots, consumable consumption/reorder, personnel-aware scheduling,
+               and the audit-log wrapper around every dispatch),
                AppContext.jsx (provider, persistence, clock)
   components/
     shared/    TopBar.jsx
     operate/   SideNav (role-gated, 3 roles), DashboardPage, OperationsPage, ProjectsPage (4 projects),
-               SchedulingPage (4-room facility-wide), LaboratoriesPage (15 rooms, grouped by building),
-               StatisticsPage, AssetsPage, ConsumablesPage (new), FinancePage, AuditLogPage (new),
-               ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
+               SchedulingPage (4-room facility-wide, personnel-aware), LaboratoriesPage (15 rooms, grouped by building),
+               StatisticsPage, AssetsPage, ConsumablesPage, FinancePage, AuditLogPage,
+               PersonnelPage (new), ReportOverlay, NewTestRequestModal, BenchStatusCard, StubPage
     build/     BuildShell (room navigation across 3 buildings), BenchTile (channel map for fuel cell benches),
                BuildPanel (room-scoped catalog), FacilityMap (all 15 rooms grouped by building, clickable)
 ```
 
 ## Planned next (per latest discussion)
 
+- Building-level switcher/tab for Build mode navigation (currently minimap-only)
+- Mobile/responsive layout — explicitly called for by the spec, zero work done so far
 - Verify print stylesheet output together (parked)
 - Consider code-splitting to address bundle size
-- Possible: building-level switcher/tab for Build mode navigation
 - Possible: timer-gate maintenance/calibration actions
-- Personnel module — still the most obvious remaining LIMS/LOMS gap
+- Possible: hiring mechanic for Personnel (currently a static roster)
 
 
 

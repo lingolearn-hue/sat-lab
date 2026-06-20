@@ -311,3 +311,16 @@ export const CONSUMABLE_TYPES = {
     lowStockThreshold: 15,
   },
 };
+
+// ---- Personnel ----
+// One qualification domain per interactive room. Capacity = how many concurrent
+// tests one qualified person can supervise — reflects how hands-on the work is,
+// not an arbitrary number. Hands-on/hazardous work (chemical thrusters) caps low;
+// passive monitoring (fuel cell channels) caps high.
+
+export const QUALIFICATION_DOMAINS = {
+  ion_propulsion: { id: 'ion_propulsion', name: 'Ion Propulsion', roomId: 'room-ipl', capacityPerPerson: 2 },
+  fuel_cell: { id: 'fuel_cell', name: 'Fuel Cell Power Systems', roomId: 'room-fcpl', capacityPerPerson: 50 },
+  chemical_thruster: { id: 'chemical_thruster', name: 'Chemical Thruster', roomId: 'room-ctl', capacityPerPerson: 4 },
+  thermal_qualification: { id: 'thermal_qualification', name: 'Thermal Qualification', roomId: 'room-tql', capacityPerPerson: 10 },
+};

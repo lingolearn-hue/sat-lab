@@ -6,6 +6,8 @@ import {
   getProcedure,
   getExecutionForTestRequest,
   getPhaseTimeRemaining,
+  getQualificationForRoom,
+  findAvailablePersonnel,
   TEST_REQUEST_STATUS_LABELS,
 } from '../../data/selectors.js';
 import BenchStatusCard from './BenchStatusCard.jsx';
@@ -206,6 +208,11 @@ function RowAction({ state, dispatch, testRequest, execution, timing, benches })
     const idleBench = benches.find((b) => b.status === 'idle');
     if (!idleBench) {
       return <span className="text-[11.5px] text-op-text-faint">No bench free</span>;
+    }
+    const qualification = getQualificationForRoom(idleBench.roomId);
+    const person = qualification ? findAvailablePersonnel(state, qualification.id) : null;
+    if (qualification && !person) {
+      return <span className="text-[11.5px] text-op-orange">No {qualification.name} staff free</span>;
     }
     return (
       <button

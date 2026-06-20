@@ -4,6 +4,7 @@ import {
   MAINTENANCE_DUE_HOURS,
   MAINTENANCE_OVERDUE_HOURS,
   CALIBRATION_DUE_HOURS,
+  QUALIFICATION_DOMAINS,
 } from '../data/catalog.js';
 
 export function getRoom(state, roomId) {
@@ -284,4 +285,35 @@ export function getThroughputByProcedure(state) {
     if (exec.result.passed) groups[procId].passed += 1;
   }
   return Object.values(groups);
+}
+
+// ---- Personnel ----
+// Availability/load is derived from active executions, not stored — same pattern
+// as bench maintenance state. A person's current load is how many non-completed
+// executions currently list them as assignedPersonnelId.
+
+export function getPersonnelLoad(state, personnelId) {
+  return state.executions.filter((e) => e.assignedPersonnelId === personnelId && e.phase !== 'completed').length;
+}
+
+export function getPersonnelForQualification(state, qualificationId) {
+  return state.personnel.filter((p) => p.qualification === qualificationId);
+}
+
+// Finds a qualified person with spare capacity for the given domain, or null if
+// everyone qualified is already at their cap. This is the personnel-side mirror
+// of "find an idle bench" — both must succeed for SCHEDULE_TEST_REQUEST to proceed.
+export function findAvailablePersonnel(state, qualificationId) {
+  const domain = QUALIFICATION_DOMAINS[qualificationId];
+  if (!domain) return null;
+  const qualified = getPersonnelForQualification(state, qualificationId);
+  for (const person of qualified) {
+    const load = getPersonnelLoad(state, person.id);
+    if (load < domain.capacityPerPerson) return person;
+  }
+  return null;
+}
+
+export function getQualificationForRoom(roomId) {
+  return Object.values(QUALIFICATION_DOMAINS).find((d) => d.roomId === roomId) || null;
 }

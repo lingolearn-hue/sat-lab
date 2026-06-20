@@ -11,6 +11,7 @@ import {
   CONSUMABLE_TYPES,
 } from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
+import { getQualificationForRoom, findAvailablePersonnel } from '../data/selectors.js';
 
 let idCounter = 1000;
 function nextId(prefix) {
@@ -107,7 +108,7 @@ function coreReducer(state, action) {
       return { ...state, currentRole: action.role };
 
     case 'LOAD_STATE':
-      return { dailySnapshots: [], auditLog: [], consumables: [], ...action.state };
+      return { dailySnapshots: [], auditLog: [], consumables: [], personnel: [], ...action.state };
 
     case 'TICK_CLOCK':
       return tickClock(state, action.simMinutesElapsed);
@@ -317,6 +318,12 @@ function scheduleTestRequest(state, action) {
   const bench = state.benches.find((b) => b.id === benchId);
   if (!bench || bench.status !== 'idle') return state;
 
+  const qualification = getQualificationForRoom(bench.roomId);
+  const person = qualification ? findAvailablePersonnel(state, qualification.id) : null;
+  // Rooms with no qualification domain defined (the view-only rooms) don't require
+  // personnel — only the four interactive rooms have a real staffing constraint.
+  if (qualification && !person) return state;
+
   const testRequests = state.testRequests.map((tr) =>
     tr.id === testRequestId ? { ...tr, status: 'scheduled', assignedBenchId: benchId } : tr
   );
@@ -325,6 +332,7 @@ function scheduleTestRequest(state, action) {
     id: nextId('exec'),
     testRequestId,
     benchId,
+    assignedPersonnelId: person ? person.id : null,
     phase: 'scheduled',
     phaseStartedAtSimMinutes: currentSimMinutes(state),
     phaseDurationHours: EXECUTION_PHASE_DURATIONS_HOURS.scheduled,
@@ -341,7 +349,8 @@ function scheduleTestRequest(state, action) {
     executions: [...state.executions, execution],
     benches,
   };
-  return addEvent(next, `${testRequestId.toUpperCase()} scheduled on ${benchId.toUpperCase()}`, testRequestId, 'info');
+  const personNote = person ? ` (supervised by ${person.name})` : '';
+  return addEvent(next, `${testRequestId.toUpperCase()} scheduled on ${benchId.toUpperCase()}${personNote}`, testRequestId, 'info');
 }
 
 function advanceExecutionPhase(state, action) {
