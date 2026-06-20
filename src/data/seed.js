@@ -18,6 +18,8 @@ export function createInitialState() {
     dailySnapshots: [], // populated once per sim-day rollover; see appReducer.recordDailySnapshot
     buildings: [
       { id: 'bldg-a', name: 'Electric Propulsion Test Center', code: 'A' },
+      { id: 'bldg-b', name: 'Chemical Propulsion Center', code: 'B' },
+      { id: 'bldg-c', name: 'Safety and Qualification Center', code: 'C' },
     ],
     rooms: [
       {
@@ -67,6 +69,82 @@ export function createInitialState() {
         tier: 1,
         maxSlots: 2,
         upkeepPerDay: 580,
+      },
+
+      // Building B — Chemical Propulsion Center
+      {
+        id: 'room-ctl',
+        buildingId: 'bldg-b',
+        name: 'Chemical Thruster Laboratory',
+        tier: 1,
+        maxSlots: 3,
+        upkeepPerDay: 520,
+      },
+      {
+        id: 'room-psl',
+        buildingId: 'bldg-b',
+        name: 'Propellant System Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 340,
+      },
+      {
+        id: 'room-psil',
+        buildingId: 'bldg-b',
+        name: 'Propulsion System Integration Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 470,
+      },
+
+      // Building C — Safety and Qualification Center
+      {
+        id: 'room-pcl',
+        buildingId: 'bldg-c',
+        name: 'Preconditioning Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 290,
+      },
+      {
+        id: 'room-efl',
+        buildingId: 'bldg-c',
+        name: 'Electrical Fault Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 330,
+      },
+      {
+        id: 'room-emc',
+        buildingId: 'bldg-c',
+        name: 'EMC Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 380,
+      },
+      {
+        id: 'room-sil2',
+        buildingId: 'bldg-c',
+        name: 'Shock and Impact Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 410,
+      },
+      {
+        id: 'room-tql',
+        buildingId: 'bldg-c',
+        name: 'Thermal Qualification Laboratory',
+        tier: 1,
+        maxSlots: 3,
+        upkeepPerDay: 560,
+      },
+      {
+        id: 'room-fhl',
+        buildingId: 'bldg-c',
+        name: 'Fire and Hazard Laboratory',
+        tier: 1,
+        maxSlots: 2,
+        upkeepPerDay: 450,
       },
     ],
     benches: [
@@ -127,6 +205,26 @@ export function createInitialState() {
       // Satellite Integration Laboratory (2/2 slots used, both running)
       { id: 'bnc-sit-01', roomId: 'room-sit', benchTypeId: 'integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 2 }, purchaseCost: 42000, hoursUsed: 88, hoursSinceLastMaintenance: 88, hoursSinceLastCalibration: 88 },
       { id: 'bnc-sit-02', roomId: 'room-sit', benchTypeId: 'integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 8 }, purchaseCost: 42000, hoursUsed: 33, hoursSinceLastMaintenance: 33, hoursSinceLastCalibration: 33 },
+
+      // Building B — Chemical Thruster Laboratory (interactive, 2/3 slots used)
+      { id: 'bnc-ctl-01', roomId: 'room-ctl', benchTypeId: 'chemical_thruster_stand', tier: 1, status: 'running', currentExecutionId: 'exec-0401', purchaseDate: { day: 3 }, purchaseCost: 29000, hoursUsed: 64, hoursSinceLastMaintenance: 64, hoursSinceLastCalibration: 64 },
+      { id: 'bnc-ctl-02', roomId: 'room-ctl', benchTypeId: 'ct_endurance_stand', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 33500, hoursUsed: 28, hoursSinceLastMaintenance: 28, hoursSinceLastCalibration: 28 },
+
+      // Building B — view-only rooms
+      { id: 'bnc-psl-01', roomId: 'room-psl', benchTypeId: 'propellant_test_rig', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 4 }, purchaseCost: 27000, hoursUsed: 70, hoursSinceLastMaintenance: 70, hoursSinceLastCalibration: 70 },
+      { id: 'bnc-psl-02', roomId: 'room-psl', benchTypeId: 'propellant_test_rig', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 9 }, purchaseCost: 27000, hoursUsed: 15, hoursSinceLastMaintenance: 15, hoursSinceLastCalibration: 15 },
+      { id: 'bnc-psil-01', roomId: 'room-psil', benchTypeId: 'propulsion_integration_stand', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 6 }, purchaseCost: 36000, hoursUsed: 50, hoursSinceLastMaintenance: 50, hoursSinceLastCalibration: 50 },
+
+      // Building C — Thermal Qualification Laboratory (interactive, 2/3 slots used)
+      { id: 'bnc-tql-01', roomId: 'room-tql', benchTypeId: 'thermal_chamber', tier: 1, status: 'running', currentExecutionId: 'exec-0501', purchaseDate: { day: 4 }, purchaseCost: 34000, hoursUsed: 80, hoursSinceLastMaintenance: 80, hoursSinceLastCalibration: 80 },
+      { id: 'bnc-tql-02', roomId: 'room-tql', benchTypeId: 'thermal_endurance_chamber', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 7 }, purchaseCost: 30000, hoursUsed: 20, hoursSinceLastMaintenance: 20, hoursSinceLastCalibration: 20 },
+
+      // Building C — view-only rooms
+      { id: 'bnc-pcl-01', roomId: 'room-pcl', benchTypeId: 'preconditioning_unit', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 5 }, purchaseCost: 19000, hoursUsed: 12, hoursSinceLastMaintenance: 12, hoursSinceLastCalibration: 12 },
+      { id: 'bnc-efl-01', roomId: 'room-efl', benchTypeId: 'electrical_fault_rig', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 6 }, purchaseCost: 23000, hoursUsed: 45, hoursSinceLastMaintenance: 45, hoursSinceLastCalibration: 45 },
+      { id: 'bnc-emc-01', roomId: 'room-emc', benchTypeId: 'emc_chamber', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 8 }, purchaseCost: 41000, hoursUsed: 18, hoursSinceLastMaintenance: 18, hoursSinceLastCalibration: 18 },
+      { id: 'bnc-sil2-01', roomId: 'room-sil2', benchTypeId: 'shock_rig', tier: 1, status: 'running', currentExecutionId: null, purchaseDate: { day: 9 }, purchaseCost: 26000, hoursUsed: 38, hoursSinceLastMaintenance: 38, hoursSinceLastCalibration: 38 },
+      { id: 'bnc-fhl-01', roomId: 'room-fhl', benchTypeId: 'fire_hazard_chamber', tier: 1, status: 'idle', currentExecutionId: null, purchaseDate: { day: 10 }, purchaseCost: 32000, hoursUsed: 9, hoursSinceLastMaintenance: 9, hoursSinceLastCalibration: 9 },
     ],
     projects: [
       {
@@ -146,6 +244,24 @@ export function createInitialState() {
         dueDate: { day: 35 },
         status: 'active',
         budget: 180000,
+      },
+      {
+        id: 'proj-sat006',
+        name: 'SAT-006 Chemical Thruster Qualification',
+        customer: 'Aurelia Launch Systems',
+        startDate: { day: 3 },
+        dueDate: { day: 38 },
+        status: 'active',
+        budget: 210000,
+      },
+      {
+        id: 'proj-sat007',
+        name: 'SAT-007 Thermal Qualification Program',
+        customer: 'Orbital Dynamics Corp',
+        startDate: { day: 4 },
+        dueDate: { day: 42 },
+        status: 'active',
+        budget: 165000,
       },
     ],
     duts: [
@@ -178,6 +294,30 @@ export function createInitialState() {
         projectId: 'proj-sat005',
         name: 'FCP-2 Fuel Cell Power System',
         specs: { cellCount: 64, outputW: 4100, inputW: 5500, ratedEfficiency: 0.71 },
+      },
+      {
+        id: 'dut-ct1',
+        projectId: 'proj-sat006',
+        name: 'CT-1 Chemical Thruster',
+        specs: { thrustN: 420, combustionTempK: 2750, ignitionMargin: 0.78, specificFuelConsumption: 0.42, ratedThrustEfficiency: 0.74 },
+      },
+      {
+        id: 'dut-ct2',
+        projectId: 'proj-sat006',
+        name: 'CT-2 Chemical Thruster',
+        specs: { thrustN: 580, combustionTempK: 2900, ignitionMargin: 0.81, specificFuelConsumption: 0.38, ratedThrustEfficiency: 0.77 },
+      },
+      {
+        id: 'dut-tq1',
+        projectId: 'proj-sat007',
+        name: 'SAT-007 Avionics Module',
+        specs: { thermalMarginK: 42, operatingRangeK: 220, outgassingRate: 0.05 },
+      },
+      {
+        id: 'dut-tq2',
+        projectId: 'proj-sat007',
+        name: 'SAT-007 Structural Panel Assembly',
+        specs: { thermalMarginK: 55, operatingRangeK: 260, outgassingRate: 0.03 },
       },
     ],
     testRequests: [
@@ -241,6 +381,46 @@ export function createInitialState() {
         status: 'approved',
         assignedBenchId: null,
       },
+      {
+        id: 'tr-0401',
+        projectId: 'proj-sat006',
+        dutId: 'dut-ct1',
+        procedure: 'thrust_characterization',
+        priority: 'high',
+        requestedCompletionDay: 20,
+        status: 'running',
+        assignedBenchId: 'bnc-ctl-01',
+      },
+      {
+        id: 'tr-0403',
+        projectId: 'proj-sat006',
+        dutId: 'dut-ct2',
+        procedure: 'ignition_reliability',
+        priority: 'normal',
+        requestedCompletionDay: 25,
+        status: 'submitted',
+        assignedBenchId: null,
+      },
+      {
+        id: 'tr-0501',
+        projectId: 'proj-sat007',
+        dutId: 'dut-tq1',
+        procedure: 'thermal_vacuum',
+        priority: 'normal',
+        requestedCompletionDay: 24,
+        status: 'running',
+        assignedBenchId: 'bnc-tql-01',
+      },
+      {
+        id: 'tr-0503',
+        projectId: 'proj-sat007',
+        dutId: 'dut-tq2',
+        procedure: 'thermal_cycling',
+        priority: 'low',
+        requestedCompletionDay: 30,
+        status: 'approved',
+        assignedBenchId: null,
+      },
     ],
     executions: [
       {
@@ -268,6 +448,24 @@ export function createInitialState() {
         phase: 'running',
         phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 6, 10),
         phaseDurationHours: 10,
+        result: null,
+      },
+      {
+        id: 'exec-0401',
+        testRequestId: 'tr-0401',
+        benchId: 'bnc-ctl-01',
+        phase: 'running',
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 5, 30),
+        phaseDurationHours: 7,
+        result: null,
+      },
+      {
+        id: 'exec-0501',
+        testRequestId: 'tr-0501',
+        benchId: 'bnc-tql-01',
+        phase: 'running',
+        phaseStartedAtSimMinutes: dayHourMinuteToTotalMinutes(14, 3, 15),
+        phaseDurationHours: 11,
         result: null,
       },
     ],

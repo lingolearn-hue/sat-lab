@@ -24,7 +24,7 @@ const STATUS_BADGE = {
 };
 
 // v1: these EPC rooms have a full test-request workflow wired up.
-const INTERACTIVE_ROOM_IDS = ['room-ipl', 'room-fcpl'];
+const INTERACTIVE_ROOM_IDS = ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'];
 
 export default function SchedulingPage() {
   const state = useAppState();
@@ -178,6 +178,15 @@ function procedureSupportsBenchType(procedureId, benchTypeId) {
     fc_efficiency: ['fuel_cell_stack'],
     fc_load_cycling: ['fuel_cell_stack'],
     fc_thermal: ['fuel_cell_stack'],
+    thrust_characterization: ['chemical_thruster_stand'],
+    ignition_reliability: ['chemical_thruster_stand'],
+    ct_thermal_performance: ['chemical_thruster_stand'],
+    fuel_consumption: ['ct_endurance_stand'],
+    ct_lifetime: ['ct_endurance_stand'],
+    thermal_cycling: ['thermal_chamber'],
+    extreme_temp_operation: ['thermal_chamber'],
+    thermal_vacuum: ['thermal_chamber'],
+    thermal_endurance: ['thermal_endurance_chamber'],
   };
   return (map[procedureId] || []).includes(benchTypeId);
 }

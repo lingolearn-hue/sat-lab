@@ -49,6 +49,30 @@ function baseScoreForProcedure(procedure, dut) {
       return clamp01(0.55 + (specs.cellCount || 0) / 400);
     case 'fc_thermal':
       return clamp01(0.7 - (specs.outputW || 0) / 20000);
+
+    // Chemical Thruster Laboratory
+    case 'thrust_characterization':
+      return specs.ratedThrustEfficiency ?? clamp01(0.65 + (specs.thrustN || 0) / 4000);
+    case 'ignition_reliability':
+      return clamp01(specs.ignitionMargin ?? 0.75);
+    case 'ct_thermal_performance':
+      return clamp01(0.72 - (specs.combustionTempK || 2800) / 10000);
+    case 'fuel_consumption':
+      // Lower specific fuel consumption is better; normalize to a 0-1 efficiency-style score.
+      return clamp01(1 - (specs.specificFuelConsumption || 0.5));
+    case 'ct_lifetime':
+      return clamp01(0.7 - (specs.thrustN || 0) / 5000);
+
+    // Thermal Qualification Laboratory
+    case 'thermal_cycling':
+      return clamp01(specs.thermalMarginK ? specs.thermalMarginK / 100 : 0.6);
+    case 'extreme_temp_operation':
+      return clamp01((specs.operatingRangeK || 200) / 350);
+    case 'thermal_vacuum':
+      return clamp01(0.68 - (specs.outgassingRate || 0) * 2);
+    case 'thermal_endurance':
+      return clamp01(0.66 + (specs.thermalMarginK || 0) / 300);
+
     default:
       return 0.5;
   }

@@ -87,6 +87,128 @@ export const BENCH_TYPES = {
     maxTier: 2,
     upgradeCost: { 2: 19000 },
   },
+
+  // Building B — Chemical Propulsion Center.
+  // Chemical Thruster Laboratory is the second fully-interactive room outside Building A,
+  // matching the precedent set by Ion Propulsion + Fuel Cell Power System.
+  chemical_thruster_stand: {
+    id: 'chemical_thruster_stand',
+    name: 'Chemical Thruster Stand',
+    description: 'Thrust characterization, ignition reliability, and thermal performance testing.',
+    procedures: ['thrust_characterization', 'ignition_reliability', 'ct_thermal_performance'],
+    baseCost: 29000,
+    baseCycleTimeHours: 7,
+    maxTier: 2,
+    upgradeCost: { 2: 13500 },
+  },
+  ct_endurance_stand: {
+    id: 'ct_endurance_stand',
+    name: 'Thruster Endurance Stand',
+    description: 'Fuel consumption and lifetime testing under sustained firing.',
+    procedures: ['fuel_consumption', 'ct_lifetime'],
+    baseCost: 33500,
+    baseCycleTimeHours: 16,
+    maxTier: 2,
+    upgradeCost: { 2: 16000 },
+  },
+
+  // Building B — view-only rooms.
+  propellant_test_rig: {
+    id: 'propellant_test_rig',
+    name: 'Propellant Test Rig',
+    description: 'Tank, feed system, valve, and regulator leak/pressure/flow testing.',
+    procedures: [],
+    baseCost: 27000,
+    baseCycleTimeHours: 9,
+    maxTier: 2,
+    upgradeCost: { 2: 12000 },
+  },
+  propulsion_integration_stand: {
+    id: 'propulsion_integration_stand',
+    name: 'Propulsion Integration Stand',
+    description: 'Validation of complete chemical propulsion assemblies before satellite integration.',
+    procedures: [],
+    baseCost: 36000,
+    baseCycleTimeHours: 12,
+    maxTier: 2,
+    upgradeCost: { 2: 16500 },
+  },
+
+  // Building C — Safety and Qualification Center.
+  // Thermal Qualification Laboratory is the second fully-interactive room in this building set,
+  // alongside Chemical Thruster Laboratory in Building B.
+  thermal_chamber: {
+    id: 'thermal_chamber',
+    name: 'Thermal Chamber',
+    description: 'Thermal cycling, extreme temperature operation, and thermal vacuum simulation.',
+    procedures: ['thermal_cycling', 'extreme_temp_operation', 'thermal_vacuum'],
+    baseCost: 34000,
+    baseCycleTimeHours: 11,
+    maxTier: 2,
+    upgradeCost: { 2: 15500 },
+  },
+  thermal_endurance_chamber: {
+    id: 'thermal_endurance_chamber',
+    name: 'Thermal Endurance Chamber',
+    description: 'Extended thermal endurance testing under cyclic load.',
+    procedures: ['thermal_endurance'],
+    baseCost: 30000,
+    baseCycleTimeHours: 20,
+    maxTier: 2,
+    upgradeCost: { 2: 14000 },
+  },
+
+  // Building C — view-only rooms.
+  preconditioning_unit: {
+    id: 'preconditioning_unit',
+    name: 'Preconditioning Unit',
+    description: 'Temperature, humidity, and electrical conditioning prior to qualification.',
+    procedures: [],
+    baseCost: 19000,
+    baseCycleTimeHours: 6,
+    maxTier: 2,
+    upgradeCost: { 2: 8500 },
+  },
+  electrical_fault_rig: {
+    id: 'electrical_fault_rig',
+    name: 'Electrical Fault Rig',
+    description: 'Short circuit, over-current, over-voltage, and wiring fault testing.',
+    procedures: [],
+    baseCost: 23000,
+    baseCycleTimeHours: 5,
+    maxTier: 2,
+    upgradeCost: { 2: 10000 },
+  },
+  emc_chamber: {
+    id: 'emc_chamber',
+    name: 'EMC Chamber',
+    description: 'Electromagnetic compatibility, interference, and emissions testing.',
+    procedures: [],
+    baseCost: 41000,
+    baseCycleTimeHours: 8,
+    maxTier: 2,
+    upgradeCost: { 2: 18500 },
+  },
+  shock_rig: {
+    id: 'shock_rig',
+    name: 'Shock & Impact Rig',
+    description: 'Mechanical shock, impact resistance, and structural survivability testing.',
+    procedures: [],
+    baseCost: 26000,
+    baseCycleTimeHours: 4,
+    maxTier: 2,
+    upgradeCost: { 2: 11500 },
+  },
+  fire_hazard_chamber: {
+    id: 'fire_hazard_chamber',
+    name: 'Fire & Hazard Chamber',
+    description: 'Fire resistance, thermal runaway, and hazard containment testing.',
+    procedures: [],
+    baseCost: 32000,
+    baseCycleTimeHours: 7,
+    maxTier: 2,
+    upgradeCost: { 2: 14500 },
+  },
 };
 
 // Test procedures (from spec: Ion Propulsion Laboratory tests)
@@ -101,6 +223,21 @@ export const PROCEDURES = {
   fc_efficiency: { id: 'fc_efficiency', name: 'Fuel Cell Efficiency Test', metricKey: 'efficiency', passThreshold: 0.55 },
   fc_load_cycling: { id: 'fc_load_cycling', name: 'Load Cycling Test', metricKey: 'cyclingStability', passThreshold: 0.6 },
   fc_thermal: { id: 'fc_thermal', name: 'Thermal Behavior Test', metricKey: 'thermalStability', passThreshold: 0.6 },
+
+  // Chemical Thruster Laboratory tests (spec: thrust characterization, fuel consumption,
+  // ignition reliability, thermal performance, lifetime testing)
+  thrust_characterization: { id: 'thrust_characterization', name: 'Thrust Characterization', metricKey: 'thrustEfficiency', passThreshold: 0.6 },
+  ignition_reliability: { id: 'ignition_reliability', name: 'Ignition Reliability Test', metricKey: 'ignitionReliability', passThreshold: 0.7 },
+  ct_thermal_performance: { id: 'ct_thermal_performance', name: 'Thermal Performance Test', metricKey: 'thermalStability', passThreshold: 0.6 },
+  fuel_consumption: { id: 'fuel_consumption', name: 'Fuel Consumption Test', metricKey: 'fuelEfficiency', passThreshold: 0.55 },
+  ct_lifetime: { id: 'ct_lifetime', name: 'Thruster Lifetime Test', metricKey: 'lifetimeScore', passThreshold: 0.6 },
+
+  // Thermal Qualification Laboratory tests (spec: thermal cycling, extreme temperature
+  // operation, thermal endurance, thermal vacuum simulation)
+  thermal_cycling: { id: 'thermal_cycling', name: 'Thermal Cycling Test', metricKey: 'thermalStability', passThreshold: 0.6 },
+  extreme_temp_operation: { id: 'extreme_temp_operation', name: 'Extreme Temperature Operation Test', metricKey: 'operationalMargin', passThreshold: 0.55 },
+  thermal_vacuum: { id: 'thermal_vacuum', name: 'Thermal Vacuum Simulation', metricKey: 'vacuumStability', passThreshold: 0.6 },
+  thermal_endurance: { id: 'thermal_endurance', name: 'Thermal Endurance Test', metricKey: 'enduranceScore', passThreshold: 0.6 },
 };
 
 export const ROOM_EXPANSION_COST_BASE = 38000;

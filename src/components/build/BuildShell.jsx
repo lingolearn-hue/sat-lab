@@ -11,11 +11,12 @@ export default function BuildShell() {
   const dispatch = useAppDispatch();
   const [roomId, setRoomId] = useState('room-ipl');
   const room = state.rooms.find((r) => r.id === roomId) || state.rooms[0];
+  const building = state.buildings.find((b) => b.id === room.buildingId);
   const benches = getBenchesForRoom(state, room.id);
   const slotsUsed = getRoomSlotsUsed(state, room.id);
   const emptySlots = Math.max(0, room.maxSlots - slotsUsed);
   const expansionCost = ROOM_EXPANSION_COST_BASE * room.tier;
-  const isInteractive = ['room-ipl', 'room-fcpl'].includes(room.id); // v1: these two EPC rooms have a full install/upgrade economy + test workflow wired
+  const isInteractive = ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'].includes(room.id); // v1: these four rooms across Buildings A/B/C have a full install/upgrade economy + test workflow wired
 
   return (
     <div className="grid grid-cols-[1fr_280px] bg-bd-bg min-h-0 flex-1 overflow-hidden font-mono">
@@ -34,14 +35,14 @@ export default function BuildShell() {
         }}
       >
         <div className="absolute top-3.5 right-4.5 text-[10px] text-bd-text-faint text-right leading-relaxed opacity-70">
-          DWG: EPC-{room.id.split('-')[1].toUpperCase()}-A3<br />SCALE 1:50
+          DWG: {building?.code || 'A'}-{room.id.split('-')[1].toUpperCase()}-A3<br />SCALE 1:50
         </div>
 
         <div className="text-[11.5px] text-bd-text-faint mb-1 tracking-wide">
-          SATELLITE POWERTRAIN TEST DEPT → <span className="text-bd-orange">ELECTRIC PROPULSION TEST CENTER</span> → {room.name.toUpperCase()}
+          SATELLITE POWERTRAIN TEST DEPT → <span className="text-bd-orange">{building?.name.toUpperCase() || ''}</span> → {room.name.toUpperCase()}
         </div>
         <div className="text-[19px] font-bold tracking-tight text-bd-text mb-0.5">{room.name}</div>
-        <div className="text-xs text-bd-text-dim mb-5">Building A · Electric Propulsion Test Center · room tier {room.tier}</div>
+        <div className="text-xs text-bd-text-dim mb-5">Building {building?.code} · {building?.name} · room tier {room.tier}</div>
 
         <div className="border border-bd-cad-cyan p-6 pt-7 relative mb-2" style={{ boxShadow: '0 0 0 1px rgba(63,168,173,0.15)' }}>
           <div className="absolute -top-[9px] left-4 bg-bd-bg px-2 text-[10px] text-bd-cad-cyan tracking-wide">
