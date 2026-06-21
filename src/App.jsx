@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AppProvider } from './context/AppContext.jsx';
 import TopBar from './components/shared/TopBar.jsx';
 import ZoomFitWrapper from './components/shared/ZoomFitWrapper.jsx';
+import ViewModeToggle from './components/shared/ViewModeToggle.jsx';
 import OperateShell from './components/operate/OperateShell.jsx';
 import BuildShell from './components/build/BuildShell.jsx';
 import MobileShell from './components/mobile/MobileShell.jsx';
@@ -35,9 +36,20 @@ export default function App() {
   return (
     <AppProvider>
       {viewMode === 'desktop' ? (
-        <ZoomFitWrapper>
-          <AppShell viewMode={viewMode} onViewModeChange={setViewMode} />
-        </ZoomFitWrapper>
+        <>
+          <ZoomFitWrapper>
+            <AppShell viewMode={viewMode} onViewModeChange={setViewMode} />
+          </ZoomFitWrapper>
+          {/* Rendered outside ZoomFitWrapper's scaled subtree on purpose: a CSS
+              transform: scale() shrinks the *visual* size of everything inside it,
+              including a fixed-pixel-size child — so the toggle has to live outside
+              that subtree entirely to stay a real, clickable size no matter how
+              small the desktop layout has been scaled down. Fixed-positioned in the
+              actual viewport, top-right corner, always on top. */}
+          <div className="fixed top-2 right-2 z-[60]">
+            <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+          </div>
+        </>
       ) : (
         <AppShell viewMode={viewMode} onViewModeChange={setViewMode} />
       )}

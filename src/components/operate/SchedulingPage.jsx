@@ -1,5 +1,5 @@
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
-import { PROCEDURES, MIN_TIER_FOR_ENDURANCE } from '../../data/catalog.js';
+import { PROCEDURES, MIN_TIER_FOR_ENDURANCE, TEST_REQUEST_STATUSES } from '../../data/catalog.js';
 import {
   getBenchesForRoom,
   getRoom,
@@ -38,6 +38,9 @@ export default function SchedulingPage() {
   const dispatch = useAppDispatch();
   const [showNewRequest, setShowNewRequest] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterLab, setFilterLab] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const interactiveRooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
   const allBenches = interactiveRooms.flatMap((r) => getBenchesForRoom(state, r.id));
 
@@ -46,7 +49,28 @@ export default function SchedulingPage() {
   const completedCount = state.testRequests.filter((tr) => tr.status === 'completed').length;
   const utilization = allBenches.length === 0 ? 0 : Math.round((runningCount / allBenches.length) * 100);
 
-  const visibleRequests = state.testRequests.filter((tr) => tr.status !== 'archived');
+  // Newest first: requests are always appended on creation (never inserted
+  // elsewhere), so array order is reliably creation order — reversing it is a
+  // correct, simple "newest on top" without needing a separate timestamp sort.
+  const visibleRequests = state.testRequests
+    .filter((tr) => tr.status !== 'archived')
+    .filter((tr) => {
+      if (filterStatus !== 'all' && tr.status !== filterStatus) return false;
+      if (filterLab !== 'all') {
+        const assignedBench = tr.assignedBenchId ? state.benches.find((b) => b.id === tr.assignedBenchId) : null;
+        const room = assignedBench ? getRoom(state, assignedBench.roomId) : roomForProcedure(state, tr.procedure);
+        if (room?.id !== filterLab) return false;
+      }
+      if (searchText) {
+        const dut = getDut(state, tr.dutId);
+        const procedure = getProcedure(tr.procedure);
+        const haystack = `${tr.id} ${dut?.name || ''} ${procedure?.name || ''}`.toLowerCase();
+        if (!haystack.includes(searchText.toLowerCase())) return false;
+      }
+      return true;
+    })
+    .slice()
+    .reverse();
   const defaultRoomForModal = interactiveRooms[0];
 
   return (
@@ -111,6 +135,44 @@ export default function SchedulingPage() {
       <div className="bg-op-panel border border-op-border rounded-lg overflow-hidden mt-4">
         <div className="px-4.5 py-3.5 border-b border-op-border flex items-center justify-between">
           <div className="text-[13.5px] font-semibold text-op-text">Test Requests — All Laboratories</div>
+          <div className="text-[11px] text-op-text-faint">{visibleRequests.length} shown · newest first</div>
+        </div>
+        <div className="px-4.5 py-3 border-b border-op-border flex gap-2.5 flex-wrap">
+          <input
+            type="text"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            placeholder="Search request, DUT, or procedure…"
+            className="flex-1 min-w-[180px] text-[12.5px] bg-white border border-op-border rounded-md px-3 py-1.5 focus:outline-none focus:border-op-teal"
+          />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="text-[12.5px] bg-white border border-op-border rounded-md px-2.5 py-1.5 focus:outline-none focus:border-op-teal"
+          >
+            <option value="all">All statuses</option>
+            {TEST_REQUEST_STATUSES.filter((s) => s !== 'archived').map((s) => (
+              <option key={s} value={s}>{TEST_REQUEST_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+          <select
+            value={filterLab}
+            onChange={(e) => setFilterLab(e.target.value)}
+            className="text-[12.5px] bg-white border border-op-border rounded-md px-2.5 py-1.5 focus:outline-none focus:border-op-teal"
+          >
+            <option value="all">All laboratories</option>
+            {interactiveRooms.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+          {(filterStatus !== 'all' || filterLab !== 'all' || searchText) && (
+            <button
+              onClick={() => { setFilterStatus('all'); setFilterLab('all'); setSearchText(''); }}
+              className="text-[12px] font-semibold text-op-teal-dim hover:underline whitespace-nowrap"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
         <table className="w-full border-collapse">
           <thead>

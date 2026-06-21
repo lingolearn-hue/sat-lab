@@ -1,8 +1,13 @@
+import { useState } from 'react';
 import { useAppState } from '../../context/AppContext.jsx';
 import { getBenchUtilization, formatMoney, formatCalendarWeek } from '../../data/selectors.js';
+import NewTestRequestModal from './NewTestRequestModal.jsx';
+
+const INTERACTIVE_ROOM_IDS = ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'];
 
 export default function DashboardPage() {
   const state = useAppState();
+  const [showNewRequest, setShowNewRequest] = useState(false);
   const room = state.rooms[0];
   const benches = state.benches.filter((b) => b.roomId === room.id);
   const running = benches.filter((b) => b.status === 'running').length;
@@ -10,11 +15,22 @@ export default function DashboardPage() {
   const completed = state.testRequests.filter((tr) => tr.status === 'completed').length;
   const utilization = getBenchUtilization(state, room.id);
   const activeProjects = state.projects.filter((p) => p.status === 'active').length;
+  const defaultRoomForModal = state.rooms.find((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
 
   return (
     <div className="px-8 py-7">
-      <div className="text-xl font-bold tracking-tight text-op-text mb-1">Dashboard</div>
-      <div className="text-[13px] text-op-text-dim mb-6">Real-time overview of laboratory operations</div>
+      <div className="flex items-baseline justify-between mb-6">
+        <div>
+          <div className="text-xl font-bold tracking-tight text-op-text mb-1">Dashboard</div>
+          <div className="text-[13px] text-op-text-dim">Real-time overview of laboratory operations</div>
+        </div>
+        <button
+          onClick={() => setShowNewRequest(true)}
+          className="bg-op-teal text-white font-semibold text-[13px] px-4 py-2.5 rounded-md hover:bg-op-teal-dim transition-colors whitespace-nowrap"
+        >
+          + New Test Request
+        </button>
+      </div>
 
       <div className="grid grid-cols-4 gap-3 mb-7">
         <Kpi label="Running Tests" value={running} />
@@ -42,6 +58,9 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+      {showNewRequest && defaultRoomForModal && (
+        <NewTestRequestModal room={defaultRoomForModal} onClose={() => setShowNewRequest(false)} />
+      )}
     </div>
   );
 }

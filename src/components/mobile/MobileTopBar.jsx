@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch, useSaveLoad } from '../../context/AppContext.jsx';
 import { formatMoney, formatCalendarWeek } from '../../data/selectors.js';
+import ViewModeToggle from '../shared/ViewModeToggle.jsx';
 
 const ROLES = {
   operator: { label: 'Operator', initials: 'OP' },
@@ -26,6 +27,7 @@ export default function MobileTopBar({ onViewModeChange }) {
         <div className="text-[11px] font-bold text-op-teal-dim tabular-nums whitespace-nowrap">
           {formatMoney(state.facility.budget)}
         </div>
+        <ViewModeToggle viewMode="mobile" onViewModeChange={onViewModeChange} />
         <button
           onClick={() => setSheetOpen(true)}
           className="w-7 h-7 rounded-full bg-gradient-to-br from-op-teal to-op-teal-dim flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
@@ -52,12 +54,6 @@ export default function MobileTopBar({ onViewModeChange }) {
             ))}
 
             <div className="border-t border-op-border mt-2 pt-2">
-              <button
-                onClick={() => { onViewModeChange('desktop'); setSheetOpen(false); }}
-                className="w-full text-left px-5 py-3 text-[14px] text-op-text"
-              >
-                Switch to Desktop view
-              </button>
               <button
                 onClick={() => dispatch({ type: 'TOGGLE_CLOCK_RUNNING' })}
                 className="w-full text-left px-5 py-3 text-[14px] text-op-text"

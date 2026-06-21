@@ -74,7 +74,10 @@ test.describe('Operate mode — test request workflow', () => {
     const after = await page.evaluate(
       () => JSON.parse(localStorage.getItem('satellite-test-center:state:v1')).testRequests.length
     );
-    expect(after).toBe(before + 1);
+    // Not a strict +1: the automatic-arrival mechanic can also add requests during
+    // this same window (it runs on every sim-tick, independent of this action), so
+    // this only asserts "at least the one we just submitted," not an exact count.
+    expect(after).toBeGreaterThanOrEqual(before + 1);
   });
 
   test('a submitted request cannot be scheduled directly — only after Approve', async ({ page }) => {
@@ -205,5 +208,57 @@ test.describe('Test request detail overlay', () => {
       return s.testRequests.find((tr) => tr.id === 'tr-0231').divergesFromStandard;
     });
     expect(diverges).toBe(true);
+  });
+});
+
+test.describe('Mobile/Desktop toggle', () => {
+  test('the floating toggle switches modes and is always present, regardless of viewport size', async ({ page }) => {
+    // Default desktop viewport from playwright.config.js — should start in Desktop mode.
+    await expect(page.locator('button[aria-label="Switch to Mobile view"]')).toBeVisible();
+    await page.click('button[aria-label="Switch to Mobile view"]');
+    await expect(page.locator('button[aria-label="Switch to Desktop view"]')).toBeVisible();
+    await page.click('button[aria-label="Switch to Desktop view"]');
+    await expect(page.locator('button[aria-label="Switch to Mobile view"]')).toBeVisible();
+  });
+});
+
+test.describe('Scheduling list — filters and ordering', () => {
+  test('the test request list shows newest requests first', async ({ page }) => {
+    // The underlying creation order is whatever order requests were appended in
+    // state.testRequests (seed data's hand-assigned ids aren't strictly increasing
+    // in that order — e.g. tr-0231 was seeded before tr-0229). "Newest first" means
+    // reversed array order, so check against the real state, not an id-number sort.
+    await page.click('text=Scheduling');
+    const expectedOrder = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      return s.testRequests.filter((tr) => tr.status !== 'archived').map((tr) => tr.id.toUpperCase()).reverse();
+    });
+    const shownOrder = await page.locator('table tbody tr td:first-child').allInnerTexts();
+    expect(shownOrder).toEqual(expectedOrder);
+  });
+
+  test('filtering by status narrows the list to only that status', async ({ page }) => {
+    await page.click('text=Scheduling');
+    await page.selectOption('select >> nth=0', 'running');
+    const statusCells = await page.locator('table tbody tr td:nth-child(6) span').allInnerTexts();
+    expect(statusCells.every((s) => s === 'Running')).toBe(true);
+  });
+
+  test('clear filters resets the list', async ({ page }) => {
+    await page.click('text=Scheduling');
+    // Pause the clock so auto-arrival can't change the row count between reads —
+    // this test is about filter UI behavior, not about counting requests over time.
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      s.simClock.running = false;
+      localStorage.setItem('satellite-test-center:state:v1', JSON.stringify(s));
+    });
+    await page.reload();
+    await page.click('text=Scheduling');
+    const before = await page.locator('table tbody tr').count();
+    await page.selectOption('select >> nth=0', 'running');
+    await page.click('text=Clear filters');
+    const after = await page.locator('table tbody tr').count();
+    expect(after).toBe(before);
   });
 });

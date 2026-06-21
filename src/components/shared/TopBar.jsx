@@ -8,6 +8,10 @@ const ROLES = {
   lab_manager: { label: 'Laboratory Manager', initials: 'LM' },
 };
 
+// viewMode/onViewModeChange are accepted but no longer rendered here — the
+// Mobile/Desktop toggle is now a single floating button in App.jsx, outside
+// ZoomFitWrapper's scaled subtree, so it stays a constant real size. Kept as
+// props rather than removed to avoid touching every call site for a no-op change.
 export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -45,7 +49,7 @@ export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange 
       };
 
   return (
-    <div className={`${theme.bg} border-b ${theme.border} flex items-center px-5 h-14 gap-6 ${theme.font}`}>
+    <div className={`${theme.bg} border-b ${theme.border} flex items-center px-5 h-14 gap-6 ${theme.font}`} style={{ paddingRight: 56 }}>
       <div className={`font-bold text-sm tracking-wide flex items-center gap-2 ${theme.text}`}>
         <span className={`w-2 h-2 rounded-full ${theme.dotColor} ${isOperate ? '' : 'shadow-[0_0_8px_#E8742C]'}`} />
         SATELLITE POWERTRAIN TEST DEPARTMENT
@@ -89,17 +93,6 @@ export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange 
       <div className={`text-[13px] font-semibold ${theme.chipBg} border ${theme.chipBorder} rounded-md px-3 py-1.5 ${isOperate ? 'text-op-text' : 'text-bd-orange'} tabular-nums`}>
         {formatMoney(state.facility.budget)}
       </div>
-
-      {onViewModeChange && (
-        <button
-          onClick={() => onViewModeChange(viewMode === 'mobile' ? 'desktop' : 'mobile')}
-          title={viewMode === 'mobile' ? 'Switch to Desktop view' : 'Switch to Mobile view'}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md ${theme.chipBg} border ${theme.chipBorder} ${theme.textDim} hover:${theme.text} text-[11px] font-semibold`}
-        >
-          <span>{viewMode === 'mobile' ? '▭' : '▯'}</span>
-          {viewMode === 'mobile' ? 'Mobile' : 'Desktop'}
-        </button>
-      )}
 
       <div className="relative">
         <button

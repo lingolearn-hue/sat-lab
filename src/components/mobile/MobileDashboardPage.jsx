@@ -1,19 +1,35 @@
+import { useState } from 'react';
 import { useAppState } from '../../context/AppContext.jsx';
 import { getBenchUtilization, formatMoney } from '../../data/selectors.js';
+import NewTestRequestModal from '../operate/NewTestRequestModal.jsx';
+
+const INTERACTIVE_ROOM_IDS = ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'];
 
 export default function MobileDashboardPage() {
   const state = useAppState();
+  const [showNewRequest, setShowNewRequest] = useState(false);
   const room = state.rooms[0];
   const benches = state.benches.filter((b) => b.roomId === room.id);
   const running = benches.filter((b) => b.status === 'running').length;
   const waiting = state.testRequests.filter((tr) => ['submitted', 'approved'].includes(tr.status)).length;
   const completed = state.testRequests.filter((tr) => tr.status === 'completed').length;
   const utilization = getBenchUtilization(state, room.id);
+  const defaultRoomForModal = state.rooms.find((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
 
   return (
     <div className="px-4 py-4">
-      <div className="text-[17px] font-bold text-op-text mb-0.5">Dashboard</div>
-      <div className="text-[12.5px] text-op-text-dim mb-4">Real-time facility overview</div>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="text-[17px] font-bold text-op-text">Dashboard</div>
+          <div className="text-[12.5px] text-op-text-dim">Real-time facility overview</div>
+        </div>
+        <button
+          onClick={() => setShowNewRequest(true)}
+          className="bg-op-teal text-white font-semibold text-[12.5px] px-3.5 py-2.5 rounded-lg whitespace-nowrap"
+        >
+          + New
+        </button>
+      </div>
 
       <div className="grid grid-cols-2 gap-2.5 mb-4">
         <BigStat label="Running Tests" value={running} accent="teal" />
@@ -40,6 +56,9 @@ export default function MobileDashboardPage() {
           ))}
         </div>
       </div>
+      {showNewRequest && defaultRoomForModal && (
+        <NewTestRequestModal room={defaultRoomForModal} onClose={() => setShowNewRequest(false)} />
+      )}
     </div>
   );
 }

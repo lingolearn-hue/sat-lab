@@ -1,17 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useAppDispatch } from '../../context/AppContext.jsx';
-import {
-  getBenchesForRoom,
-  getRoom,
-  getDut,
-  getProcedure,
-  getExecutionForTestRequest,
-  getPhaseTimeRemaining,
-  roomForProcedure,
-  formatHoursMinutes,
-  TEST_REQUEST_STATUS_LABELS,
-  formatCalendarWeek,
-} from '../../data/selectors.js';
+import { getBenchesForRoom, getRoom, getDut, getProcedure, getExecutionForTestRequest, getPhaseTimeRemaining, roomForProcedure, formatHoursMinutes, TEST_REQUEST_STATUS_LABELS, formatCalendarWeek } from '../../data/selectors.js';
+import { TEST_REQUEST_STATUSES } from '../../data/catalog.js';
 import { getSchedulingAction } from '../operate/SchedulingPage.jsx';
 import NewTestRequestModal from '../operate/NewTestRequestModal.jsx';
 import TestRequestDetailOverlay from '../operate/TestRequestDetailOverlay.jsx';
@@ -35,11 +25,25 @@ export default function MobileSchedulingPage() {
   const dispatch = useAppDispatch();
   const [showNewRequest, setShowNewRequest] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterLab, setFilterLab] = useState('all');
   const interactiveRooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
   const allBenches = interactiveRooms.flatMap((r) => getBenchesForRoom(state, r.id));
   const runningCount = allBenches.filter((b) => b.status === 'running').length;
   const waitingCount = state.testRequests.filter((tr) => ['submitted', 'approved'].includes(tr.status)).length;
-  const visibleRequests = state.testRequests.filter((tr) => tr.status !== 'archived');
+  const visibleRequests = state.testRequests
+    .filter((tr) => tr.status !== 'archived')
+    .filter((tr) => {
+      if (filterStatus !== 'all' && tr.status !== filterStatus) return false;
+      if (filterLab !== 'all') {
+        const assignedBench = tr.assignedBenchId ? state.benches.find((b) => b.id === tr.assignedBenchId) : null;
+        const room = assignedBench ? getRoom(state, assignedBench.roomId) : roomForProcedure(state, tr.procedure);
+        if (room?.id !== filterLab) return false;
+      }
+      return true;
+    })
+    .slice()
+    .reverse();
   const defaultRoomForModal = interactiveRooms[0];
 
   return (
@@ -66,6 +70,29 @@ export default function MobileSchedulingPage() {
           <div className="text-[10.5px] text-op-text-faint font-semibold uppercase">Waiting</div>
           <div className="text-[22px] font-bold text-op-text tabular-nums">{waitingCount}</div>
         </div>
+      </div>
+
+      <div className="flex gap-2 mb-3.5">
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="flex-1 text-[12px] bg-white border border-op-border rounded-md px-2 py-2 focus:outline-none"
+        >
+          <option value="all">All statuses</option>
+          {TEST_REQUEST_STATUSES.filter((s) => s !== 'archived').map((s) => (
+            <option key={s} value={s}>{TEST_REQUEST_STATUS_LABELS[s]}</option>
+          ))}
+        </select>
+        <select
+          value={filterLab}
+          onChange={(e) => setFilterLab(e.target.value)}
+          className="flex-1 text-[12px] bg-white border border-op-border rounded-md px-2 py-2 focus:outline-none"
+        >
+          <option value="all">All labs</option>
+          {interactiveRooms.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-2.5">
