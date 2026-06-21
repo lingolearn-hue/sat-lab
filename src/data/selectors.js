@@ -5,6 +5,7 @@ import {
   MAINTENANCE_OVERDUE_HOURS,
   CALIBRATION_DUE_HOURS,
   QUALIFICATION_DOMAINS,
+  hashStringToUnitInterval,
 } from '../data/catalog.js';
 
 export function getRoom(state, roomId) {
@@ -49,6 +50,66 @@ export function getProject(state, projectId) {
 
 export function getExecutionForTestRequest(state, testRequestId) {
   return state.executions.find((e) => e.testRequestId === testRequestId && e.phase !== 'completed');
+}
+
+// ---- Test Request detail view: stakeholders, documents, procedure divergence ----
+// These derive a sensible baseline from existing data at creation time; the result
+// is then stored directly on the test request (stakeholders, divergesFromStandard,
+// divergenceNote) so it becomes a normal editable field rather than something
+// recomputed (and silently overwritten) every time the detail view opens.
+
+export function deriveDefaultStakeholders(state, { projectId }) {
+  const project = getProject(state, projectId);
+  const stakeholders = [];
+  if (project) {
+    stakeholders.push({ name: project.customer, role: 'Customer' });
+  }
+  stakeholders.push({ name: 'Lab Manager', role: 'Resource Owner' });
+  stakeholders.push({ name: 'Test Engineer', role: 'Request Owner' });
+  return stakeholders;
+}
+
+// Deterministic placeholder documents — not stored in state, regenerated from the
+// request's own fields each time the detail view renders. No real file behind these;
+// they exist to show what a real LIMS would attach to a test record.
+export function getPlaceholderDocuments(state, testRequest) {
+  const dut = getDut(state, testRequest.dutId);
+  const project = getProject(state, testRequest.projectId);
+  const procedure = getProcedure(testRequest.procedure);
+  const docs = [];
+  if (procedure) docs.push({ name: `Test Procedure — ${procedure.name}.pdf`, kind: 'procedure' });
+  if (dut) docs.push({ name: `${dut.name} Datasheet.pdf`, kind: 'datasheet' });
+  if (project) docs.push({ name: `Customer PO — ${project.name}.pdf`, kind: 'purchase_order' });
+  docs.push({ name: `Calibration Certificate — ${testRequest.id.toUpperCase()}.pdf`, kind: 'calibration' });
+  return docs;
+}
+
+// ~15% of requests deterministically diverge from the standard procedure at
+// creation — a small set of plausible, varied reasons rather than one generic
+// note, picked by the same seed so it's reproducible. A person can still edit or
+// clear this manually afterward (see UPDATE_TEST_REQUEST_DETAILS in the reducer).
+//
+// IMPORTANT: seed by a stable, content-derived key (e.g. "day:index" for
+// auto-generated requests), never by the request's own assigned id — ids come from
+// a sequential, process-global counter (nextId), so two otherwise-identical runs
+// can assign different ids to "the same" request and silently break determinism.
+// This is exactly the kind of bug that already happened once with the weak hash;
+// this one was a seed-choice bug instead, same failure mode.
+const DIVERGENCE_REASONS = [
+  'Extended thermal soak requested by customer',
+  'Reduced sample size due to hardware availability',
+  'Additional calibration cycle inserted before test start',
+  'Non-standard data logging interval requested',
+  'Test sequence reordered to prioritize a customer milestone',
+];
+
+export function deriveDefaultDivergence(seedKey) {
+  const seed = hashStringToUnitInterval(`divergence:${seedKey}`);
+  const diverges = seed < 0.15;
+  if (!diverges) return { divergesFromStandard: false, divergenceNote: '' };
+  const reasonSeed = hashStringToUnitInterval(`divergence-reason:${seedKey}`);
+  const reason = DIVERGENCE_REASONS[Math.floor(reasonSeed * DIVERGENCE_REASONS.length) % DIVERGENCE_REASONS.length];
+  return { divergesFromStandard: true, divergenceNote: reason };
 }
 
 export function getExecutionForBench(state, benchId) {

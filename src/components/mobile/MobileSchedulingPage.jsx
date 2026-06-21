@@ -14,6 +14,7 @@ import {
 } from '../../data/selectors.js';
 import { getSchedulingAction } from '../operate/SchedulingPage.jsx';
 import NewTestRequestModal from '../operate/NewTestRequestModal.jsx';
+import TestRequestDetailOverlay from '../operate/TestRequestDetailOverlay.jsx';
 
 const STATUS_BADGE = {
   running: 'bg-op-teal-glow text-op-teal-dim',
@@ -33,6 +34,7 @@ export default function MobileSchedulingPage() {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [showNewRequest, setShowNewRequest] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const interactiveRooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
   const allBenches = interactiveRooms.flatMap((r) => getBenchesForRoom(state, r.id));
   const runningCount = allBenches.filter((b) => b.status === 'running').length;
@@ -79,23 +81,25 @@ export default function MobileSchedulingPage() {
 
           return (
             <div key={tr.id} className="bg-op-panel border border-op-border rounded-xl p-3.5">
-              <div className="flex items-start justify-between mb-1.5">
-                <div>
-                  <div className="font-mono text-[11px] text-op-text-faint">{tr.id.toUpperCase()}</div>
-                  <div className="text-[14px] font-semibold text-op-text mt-0.5">{dut?.name}</div>
+              <div onClick={() => setSelectedRequest(tr)} className="cursor-pointer">
+                <div className="flex items-start justify-between mb-1.5">
+                  <div>
+                    <div className="font-mono text-[11px] text-op-text-faint">{tr.id.toUpperCase()}</div>
+                    <div className="text-[14px] font-semibold text-op-text mt-0.5">{dut?.name}</div>
+                  </div>
+                  <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_BADGE[tr.status] || 'bg-op-panel-raised text-op-text-dim'}`}>
+                    {TEST_REQUEST_STATUS_LABELS[tr.status]}
+                  </span>
                 </div>
-                <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_BADGE[tr.status] || 'bg-op-panel-raised text-op-text-dim'}`}>
-                  {TEST_REQUEST_STATUS_LABELS[tr.status]}
-                </span>
+                <div className="text-[12.5px] text-op-text-dim mb-1">{procedure?.name}</div>
+                <div className="flex items-center justify-between text-[11px] text-op-text-faint mb-2.5">
+                  <span>{room?.name || 'Unassigned lab'}</span>
+                  <span>Due {formatCalendarWeek(tr.requestedCompletionDay)}</span>
+                </div>
+                {timing && !timing.isDue && (
+                  <div className="font-mono text-[12px] text-op-teal-dim mb-2.5 tabular-nums">⏱ {formatHoursMinutes(timing.minutesRemaining)} remaining</div>
+                )}
               </div>
-              <div className="text-[12.5px] text-op-text-dim mb-1">{procedure?.name}</div>
-              <div className="flex items-center justify-between text-[11px] text-op-text-faint mb-2.5">
-                <span>{room?.name || 'Unassigned lab'}</span>
-                <span>Due {formatCalendarWeek(tr.requestedCompletionDay)}</span>
-              </div>
-              {timing && !timing.isDue && (
-                <div className="font-mono text-[12px] text-op-teal-dim mb-2.5 tabular-nums">⏱ {formatHoursMinutes(timing.minutesRemaining)} remaining</div>
-              )}
               <MobileActionButton action={action} dispatch={dispatch} testRequest={tr} />
             </div>
           );
@@ -107,6 +111,12 @@ export default function MobileSchedulingPage() {
 
       {showNewRequest && defaultRoomForModal && (
         <NewTestRequestModal room={defaultRoomForModal} onClose={() => setShowNewRequest(false)} />
+      )}
+      {selectedRequest && (
+        <TestRequestDetailOverlay
+          testRequest={state.testRequests.find((tr) => tr.id === selectedRequest.id) || selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+        />
       )}
     </div>
   );

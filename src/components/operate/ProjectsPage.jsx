@@ -4,6 +4,7 @@ import { getDut, getProcedure, TEST_REQUEST_STATUS_LABELS, formatCalendarWeek } 
 import { buildTestReport, buildProjectReport } from '../../data/reports.js';
 import NewTestRequestModal from './NewTestRequestModal.jsx';
 import ReportOverlay from './ReportOverlay.jsx';
+import TestRequestDetailOverlay from './TestRequestDetailOverlay.jsx';
 
 const STATUS_BADGE = {
   running: 'bg-op-teal-glow text-op-teal-dim',
@@ -22,6 +23,7 @@ export default function ProjectsPage() {
   const [expandedProjectId, setExpandedProjectId] = useState(state.projects[0]?.id);
   const [showNewRequest, setShowNewRequest] = useState(false);
   const [activeReport, setActiveReport] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const room = state.rooms[0];
 
   function openTestReport(testRequestId) {
@@ -119,8 +121,12 @@ export default function ProjectsPage() {
                       const dut = getDut(state, tr.dutId);
                       const procedure = getProcedure(tr.procedure);
                       return (
-                        <tr key={tr.id} className="border-b border-op-border last:border-b-0">
-                          <td className="px-5 py-3 font-mono text-[12.5px] text-op-text-dim">{tr.id.toUpperCase()}</td>
+                        <tr
+                          key={tr.id}
+                          onClick={() => setSelectedRequest(tr)}
+                          className="border-b border-op-border last:border-b-0 cursor-pointer hover:bg-op-panel-raised transition-colors"
+                        >
+                          <td className="px-5 py-3 font-mono text-[12.5px] text-op-teal-dim hover:underline">{tr.id.toUpperCase()}</td>
                           <td className="px-5 py-3 text-[13px] text-op-text">{dut?.name}</td>
                           <td className="px-5 py-3 text-[13px] text-op-text">{procedure?.name}</td>
                           <td className="px-5 py-3 text-[12.5px] text-op-text-dim capitalize">{tr.priority}</td>
@@ -130,7 +136,7 @@ export default function ProjectsPage() {
                             </span>
                           </td>
                           <td className="px-5 py-3 text-[13px] text-op-text-dim">{formatCalendarWeek(tr.requestedCompletionDay)}</td>
-                          <td className="px-5 py-3">
+                          <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                             {tr.status === 'completed' ? (
                               <button onClick={() => openTestReport(tr.id)} className="text-[12px] font-semibold text-op-teal-dim hover:underline">
                                 View →
@@ -159,6 +165,12 @@ export default function ProjectsPage() {
 
       {showNewRequest && <NewTestRequestModal room={room} onClose={() => setShowNewRequest(false)} />}
       {activeReport && <ReportOverlay report={activeReport} onClose={() => setActiveReport(null)} />}
+      {selectedRequest && (
+        <TestRequestDetailOverlay
+          testRequest={state.testRequests.find((tr) => tr.id === selectedRequest.id) || selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+        />
+      )}
     </div>
   );
 }

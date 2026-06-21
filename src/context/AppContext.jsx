@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useReducer, useRef, useCallback } from 'react';
+import { createContext, useContext, useEffect, useReducer, useCallback } from 'react';
 import { appReducer } from './appReducer.js';
 import { createInitialState } from '../data/seed.js';
+import { SIM_HOURS_PER_TICK } from '../data/catalog.js';
 
 const STORAGE_KEY = 'satellite-test-center:state:v1';
 
@@ -34,15 +35,15 @@ export function AppProvider({ children }) {
     }
   }, [state]);
 
-  // Real-time accelerated clock: 1 real second = speedMultiplier sim minutes.
-  const lastTickRef = useRef(Date.now());
+  // Fixed-tick clock: every 1 real second, advance the sim clock by a fixed
+  // SIM_HOURS_PER_TICK, scaled by speedMultiplier (so ×2 speed = 4 sim-hours/tick,
+  // not 1). This replaces the old "real elapsed time x speedMultiplier" smooth
+  // advance — the clock now moves in fixed, predictable jumps once per second
+  // rather than continuously, but speedMultiplier still does what the UI implies.
   useEffect(() => {
     const interval = setInterval(() => {
-      const now = Date.now();
-      const realSecondsElapsed = (now - lastTickRef.current) / 1000;
-      lastTickRef.current = now;
       if (state.simClock.running) {
-        const simMinutesElapsed = realSecondsElapsed * state.simClock.speedMultiplier;
+        const simMinutesElapsed = SIM_HOURS_PER_TICK * 60 * state.simClock.speedMultiplier;
         dispatch({ type: 'TICK_CLOCK', simMinutesElapsed });
       }
     }, 1000);

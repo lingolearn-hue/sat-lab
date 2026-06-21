@@ -1,8 +1,10 @@
 // Initial application state — the v1 vertical slice:
 // Satellite Powertrain Test Department > Electric Propulsion Test Center (Building A) > Ion Propulsion Laboratory
 
+import { deriveDefaultStakeholders, deriveDefaultDivergence } from './selectors.js';
+
 export function createInitialState() {
-  return {
+  const state = {
     facility: {
       name: 'Satellite Powertrain Test Department',
       budget: 482300,
@@ -528,6 +530,24 @@ export function createInitialState() {
       { id: 'evt-4', simDay: 14, simHour: 8, simMinute: 30, message: 'BNC-IPL-03 entered idle state', relatedEntityId: 'bnc-ipl-03', severity: 'info' },
     ],
   };
+
+  // Backfill stakeholders + divergence fields on every seeded test request, using
+  // the same derivation the reducer uses for newly-created requests. Done here
+  // (once, at state construction) rather than hand-written per seed entry, so any
+  // future seed test request automatically gets these fields too, with no risk of
+  // forgetting one.
+  state.testRequests = state.testRequests.map((tr) => {
+    if (tr.stakeholders && tr.divergesFromStandard !== undefined) return tr; // already set explicitly
+    const divergence = deriveDefaultDivergence(tr.id);
+    return {
+      ...tr,
+      stakeholders: tr.stakeholders || deriveDefaultStakeholders(state, { projectId: tr.projectId }),
+      divergesFromStandard: tr.divergesFromStandard ?? divergence.divergesFromStandard,
+      divergenceNote: tr.divergenceNote ?? divergence.divergenceNote,
+    };
+  });
+
+  return state;
 }
 
 function dayHourMinuteToTotalMinutes(day, hour, minute) {

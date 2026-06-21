@@ -12,6 +12,9 @@ import {
   findAvailablePersonnel,
   getQualificationForRoom,
   roomForProcedure,
+  deriveDefaultStakeholders,
+  deriveDefaultDivergence,
+  getPlaceholderDocuments,
   CHANNEL_GROUP_SIZE,
 } from './selectors.js';
 import { createInitialState } from './seed.js';
@@ -224,5 +227,87 @@ describe('roomForProcedure', () => {
   it('returns null for a procedure with no matching bench anywhere', () => {
     const state = createInitialState();
     expect(roomForProcedure(state, 'not_a_real_procedure')).toBeNull();
+  });
+});
+
+describe('deriveDefaultStakeholders', () => {
+  it('includes the project customer, Lab Manager, and Test Engineer', () => {
+    const state = createInitialState();
+    const stakeholders = deriveDefaultStakeholders(state, { projectId: 'proj-sat004' });
+    const names = stakeholders.map((s) => s.name);
+    expect(names).toContain('Helion Orbital Systems'); // proj-sat004's customer
+    expect(names).toContain('Lab Manager');
+    expect(names).toContain('Test Engineer');
+  });
+
+  it('omits the customer entry gracefully when the project does not exist', () => {
+    const state = createInitialState();
+    const stakeholders = deriveDefaultStakeholders(state, { projectId: 'not-a-real-project' });
+    expect(stakeholders.map((s) => s.role)).not.toContain('Customer');
+  });
+});
+
+describe('deriveDefaultDivergence', () => {
+  // Regression guard: this seed must NEVER be a sequentially-assigned id (from
+  // nextId()), only content-stable keys — using an id broke determinism once
+  // already, since two otherwise-identical runs can assign different sequential
+  // ids to "the same" conceptual request.
+  it('is deterministic for the same seed key', () => {
+    const a = deriveDefaultDivergence('proj-sat004:dut-xr3:efficiency_mapping:14');
+    const b = deriveDefaultDivergence('proj-sat004:dut-xr3:efficiency_mapping:14');
+    expect(a).toEqual(b);
+  });
+
+  it('returns an empty note when not diverging', () => {
+    // Find a seed that doesn't diverge (most won't, at ~15%) and check the shape.
+    let result;
+    for (let i = 0; i < 50; i++) {
+      result = deriveDefaultDivergence(`test-seed-${i}`);
+      if (!result.divergesFromStandard) break;
+    }
+    expect(result.divergesFromStandard).toBe(false);
+    expect(result.divergenceNote).toBe('');
+  });
+
+  it('returns a non-empty, plausible note when diverging', () => {
+    let result;
+    for (let i = 0; i < 50; i++) {
+      result = deriveDefaultDivergence(`test-seed-${i}`);
+      if (result.divergesFromStandard) break;
+    }
+    expect(result.divergesFromStandard).toBe(true);
+    expect(result.divergenceNote.length).toBeGreaterThan(0);
+  });
+
+  it('roughly 15% of a large sample of distinct seeds diverge', () => {
+    let divergingCount = 0;
+    const sampleSize = 500;
+    for (let i = 0; i < sampleSize; i++) {
+      if (deriveDefaultDivergence(`sample-seed-${i}`).divergesFromStandard) divergingCount++;
+    }
+    const rate = divergingCount / sampleSize;
+    expect(rate).toBeGreaterThan(0.08);
+    expect(rate).toBeLessThan(0.25);
+  });
+});
+
+describe('getPlaceholderDocuments', () => {
+  it('generates a procedure, datasheet, purchase order, and calibration document', () => {
+    const state = createInitialState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0231');
+    const docs = getPlaceholderDocuments(state, tr);
+    expect(docs.length).toBeGreaterThanOrEqual(4);
+    expect(docs.some((d) => d.kind === 'procedure')).toBe(true);
+    expect(docs.some((d) => d.kind === 'datasheet')).toBe(true);
+    expect(docs.some((d) => d.kind === 'purchase_order')).toBe(true);
+    expect(docs.some((d) => d.kind === 'calibration')).toBe(true);
+  });
+
+  it('is deterministic for the same test request', () => {
+    const state = createInitialState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0231');
+    const a = getPlaceholderDocuments(state, tr);
+    const b = getPlaceholderDocuments(state, tr);
+    expect(a).toEqual(b);
   });
 });

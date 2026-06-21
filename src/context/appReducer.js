@@ -17,7 +17,7 @@ import {
   EXPIRED_TO_ARCHIVED_DAYS,
 } from '../data/catalog.js';
 import { computeExecutionResult } from '../engine/testResults.js';
-import { getQualificationForRoom, findAvailablePersonnel } from '../data/selectors.js';
+import { getQualificationForRoom, findAvailablePersonnel, deriveDefaultStakeholders, deriveDefaultDivergence } from '../data/selectors.js';
 
 let idCounter = 1000;
 function nextId(prefix) {
@@ -101,6 +101,8 @@ function summarizeAction(action, prevState, nextState) {
       return `Calibration performed: ${action.benchId.toUpperCase()}`;
     case 'REORDER_CONSUMABLE':
       return `Consumable reordered: ${action.consumableId}`;
+    case 'UPDATE_TEST_REQUEST_DETAILS':
+      return `Test request ${action.testRequestId.toUpperCase()} details updated`;
     case 'ADD_EVENT':
       return action.message;
     default:
@@ -160,6 +162,9 @@ function coreReducer(state, action) {
 
     case 'REORDER_CONSUMABLE':
       return reorderConsumable(state, action);
+
+    case 'UPDATE_TEST_REQUEST_DETAILS':
+      return updateTestRequestDetails(state, action);
 
     default:
       return state;
@@ -282,8 +287,10 @@ function generateRequestsForOneDay(state, day) {
     const leadDays = useEndurance ? 35 + Math.floor(dueSeed * 21) : 7 + Math.floor(dueSeed * 14); // endurance jobs get a longer lead time
     const requestedCompletionDay = day + leadDays;
 
+    const trId = nextId('tr');
+    const divergence = deriveDefaultDivergence(`${day}:${i}`); // content-stable seed, not the sequential id
     const testRequest = {
-      id: nextId('tr'),
+      id: trId,
       projectId: project.id,
       dutId: dut.id,
       procedure,
@@ -292,6 +299,9 @@ function generateRequestsForOneDay(state, day) {
       status: 'submitted',
       assignedBenchId: null,
       submittedOnDay: day,
+      stakeholders: deriveDefaultStakeholders(next, { projectId: project.id }),
+      divergesFromStandard: divergence.divergesFromStandard,
+      divergenceNote: divergence.divergenceNote,
     };
 
     next = { ...next, testRequests: [...next.testRequests, testRequest] };
@@ -410,8 +420,13 @@ function currentSimMinutes(state) {
 // ---- Test Request workflow ----
 
 function submitTestRequest(state, action) {
+  const id = nextId('tr');
+  // Content-stable seed, not the assigned id (which comes from a sequential,
+  // process-global counter and isn't reproducible across separate runs).
+  const seedKey = `${action.projectId}:${action.dutId}:${action.procedure}:${state.simClock.day}`;
+  const divergence = deriveDefaultDivergence(seedKey);
   const newRequest = {
-    id: nextId('tr'),
+    id,
     projectId: action.projectId,
     dutId: action.dutId,
     procedure: action.procedure,
@@ -420,6 +435,9 @@ function submitTestRequest(state, action) {
     status: 'submitted',
     assignedBenchId: null,
     submittedOnDay: state.simClock.day,
+    stakeholders: deriveDefaultStakeholders(state, { projectId: action.projectId }),
+    divergesFromStandard: divergence.divergesFromStandard,
+    divergenceNote: divergence.divergenceNote,
   };
   const withRequest = { ...state, testRequests: [...state.testRequests, newRequest] };
   return addEvent(withRequest, `Test request ${newRequest.id.toUpperCase()} submitted`, newRequest.id, 'info');
@@ -653,6 +671,24 @@ function reorderConsumable(state, action) {
     transactions: [...state.transactions, transaction],
   };
   return addEvent(next, `${consumableType.name} restocked (+${consumableType.reorderQuantity} ${consumableType.unit})`, consumableId, 'success');
+}
+
+// Edits a test request's record-keeping fields (stakeholders, procedure-divergence
+// flag/note) — deliberately works regardless of the request's workflow status,
+// since these are annotations about the record itself, not gates in the
+// Draft -> Submitted -> ... -> Completed sequence the other actions enforce.
+function updateTestRequestDetails(state, action) {
+  const { testRequestId, stakeholders, divergesFromStandard, divergenceNote } = action;
+  const testRequest = state.testRequests.find((tr) => tr.id === testRequestId);
+  if (!testRequest) return state;
+
+  const updated = { ...testRequest };
+  if (stakeholders !== undefined) updated.stakeholders = stakeholders;
+  if (divergesFromStandard !== undefined) updated.divergesFromStandard = divergesFromStandard;
+  if (divergenceNote !== undefined) updated.divergenceNote = divergenceNote;
+
+  const testRequests = state.testRequests.map((tr) => (tr.id === testRequestId ? updated : tr));
+  return { ...state, testRequests };
 }
 
 function capitalize(s) {

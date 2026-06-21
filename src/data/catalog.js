@@ -272,6 +272,11 @@ export const TEST_REQUEST_EXPIRY_DAYS = 4;
 // including archived ones.
 export const EXPIRED_TO_ARCHIVED_DAYS = 7;
 
+// Fixed-tick clock: every real second, the sim clock advances by this many sim-hours
+// (scaled by simClock.speedMultiplier). Replaced the old "real elapsed time x
+// speedMultiplier" smooth advance — see AppContext.jsx.
+export const SIM_HOURS_PER_TICK = 2;
+
 export const EXECUTION_PHASE_DURATIONS_HOURS = {
   scheduled: 1, // setup buffer before running
   running: null, // computed per-execution via getProcedureDurationHours(procedure, dutId)

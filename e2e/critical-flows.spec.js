@@ -167,3 +167,43 @@ test.describe('Save / load', () => {
     await expect(page.locator('text=$999,999').first()).toBeVisible();
   });
 });
+
+test.describe('Test request detail overlay', () => {
+  test('clicking a request opens its detail view with stakeholders, divergence, and documents', async ({ page }) => {
+    await page.click('text=Scheduling');
+    await page.click('tr:has-text("TR-0231")');
+
+    await expect(page.locator('text=TR-0231').first()).toBeVisible();
+    await expect(page.locator('text=STAKEHOLDERS')).toBeVisible();
+    await expect(page.locator('text=PROCEDURE DIVERGENCE')).toBeVisible();
+    await expect(page.locator('text=DOCUMENTS')).toBeVisible();
+    await expect(page.locator('text=Test Procedure — Endurance Test.pdf')).toBeVisible();
+  });
+
+  test('adding a stakeholder persists to state', async ({ page }) => {
+    await page.click('text=Scheduling');
+    await page.click('tr:has-text("TR-0231")');
+
+    await page.fill('input[placeholder="Name"]', 'Jane Doe');
+    await page.fill('input[placeholder="Role"]', 'QA Lead');
+    await page.click('text=+ Add');
+
+    const stakeholders = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      return s.testRequests.find((tr) => tr.id === 'tr-0231').stakeholders;
+    });
+    expect(stakeholders.some((s) => s.name === 'Jane Doe' && s.role === 'QA Lead')).toBe(true);
+  });
+
+  test('toggling procedure divergence persists to state', async ({ page }) => {
+    await page.click('text=Scheduling');
+    await page.click('tr:has-text("TR-0231")');
+
+    await page.click('text=Mark as diverging');
+    const diverges = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      return s.testRequests.find((tr) => tr.id === 'tr-0231').divergesFromStandard;
+    });
+    expect(diverges).toBe(true);
+  });
+});

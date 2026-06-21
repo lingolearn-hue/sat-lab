@@ -411,6 +411,78 @@ describe('appReducer — maintenance, calibration, consumables', () => {
   });
 });
 
+describe('appReducer — test request detail editing', () => {
+  it('UPDATE_TEST_REQUEST_DETAILS replaces stakeholders wholesale', () => {
+    const state = freshState();
+    const tr = state.testRequests.find((t) => t.id === 'tr-0231');
+    const newStakeholders = [{ name: 'Jane Doe', role: 'QA Lead' }];
+    const next = appReducer(state, { type: 'UPDATE_TEST_REQUEST_DETAILS', testRequestId: 'tr-0231', stakeholders: newStakeholders });
+    expect(next.testRequests.find((t) => t.id === 'tr-0231').stakeholders).toEqual(newStakeholders);
+  });
+
+  it('UPDATE_TEST_REQUEST_DETAILS can toggle divergesFromStandard and set a note independently', () => {
+    const state = freshState();
+    const next = appReducer(state, {
+      type: 'UPDATE_TEST_REQUEST_DETAILS',
+      testRequestId: 'tr-0231',
+      divergesFromStandard: true,
+      divergenceNote: 'Manual override for testing',
+    });
+    const tr = next.testRequests.find((t) => t.id === 'tr-0231');
+    expect(tr.divergesFromStandard).toBe(true);
+    expect(tr.divergenceNote).toBe('Manual override for testing');
+  });
+
+  it('UPDATE_TEST_REQUEST_DETAILS leaves untouched fields alone', () => {
+    const state = freshState();
+    const before = state.testRequests.find((t) => t.id === 'tr-0231');
+    const next = appReducer(state, { type: 'UPDATE_TEST_REQUEST_DETAILS', testRequestId: 'tr-0231', divergesFromStandard: true });
+    const after = next.testRequests.find((t) => t.id === 'tr-0231');
+    expect(after.status).toBe(before.status);
+    expect(after.stakeholders).toEqual(before.stakeholders);
+    expect(after.priority).toBe(before.priority);
+  });
+
+  it('UPDATE_TEST_REQUEST_DETAILS works regardless of workflow status (e.g. on a completed request)', () => {
+    let state = freshState();
+    state = appReducer(state, { type: 'UPDATE_TEST_REQUEST_DETAILS', testRequestId: 'tr-0233', stakeholders: [{ name: 'Someone', role: 'Auditor' }] });
+    // tr-0233 is seeded as 'scheduled', not editable via the normal workflow actions,
+    // but detail edits are record-keeping annotations, not workflow gates.
+    expect(state.testRequests.find((t) => t.id === 'tr-0233').stakeholders).toEqual([{ name: 'Someone', role: 'Auditor' }]);
+  });
+
+  it('UPDATE_TEST_REQUEST_DETAILS is a no-op for a request id that does not exist', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'UPDATE_TEST_REQUEST_DETAILS', testRequestId: 'not-a-real-id', stakeholders: [] });
+    expect(next.testRequests).toEqual(state.testRequests);
+  });
+
+  it('every seeded test request has stakeholders and a defined divergesFromStandard flag (backfilled at creation)', () => {
+    const state = freshState();
+    for (const tr of state.testRequests) {
+      expect(Array.isArray(tr.stakeholders)).toBe(true);
+      expect(tr.stakeholders.length).toBeGreaterThan(0);
+      expect(typeof tr.divergesFromStandard).toBe('boolean');
+    }
+  });
+
+  it('a manually submitted test request also gets stakeholders and a divergence flag', () => {
+    const state = freshState();
+    const next = appReducer(state, {
+      type: 'SUBMIT_TEST_REQUEST',
+      projectId: 'proj-sat004',
+      dutId: 'dut-xr3',
+      procedure: 'efficiency_mapping',
+      priority: 'normal',
+      requestedCompletionDay: 30,
+    });
+    const created = next.testRequests.find((tr) => !state.testRequests.some((str) => str.id === tr.id));
+    expect(Array.isArray(created.stakeholders)).toBe(true);
+    expect(created.stakeholders.length).toBeGreaterThan(0);
+    expect(typeof created.divergesFromStandard).toBe('boolean');
+  });
+});
+
 describe('appReducer — automatic test request arrival', () => {
   it('generates between 2 and 6 new requests per sim-day crossed', () => {
     const state = freshState();

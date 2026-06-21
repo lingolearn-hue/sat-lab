@@ -15,6 +15,7 @@ import {
 } from '../../data/selectors.js';
 import BenchStatusCard from './BenchStatusCard.jsx';
 import NewTestRequestModal from './NewTestRequestModal.jsx';
+import TestRequestDetailOverlay from './TestRequestDetailOverlay.jsx';
 import { useState } from 'react';
 
 const STATUS_BADGE = {
@@ -36,6 +37,7 @@ export default function SchedulingPage() {
   const state = useAppState();
   const dispatch = useAppDispatch();
   const [showNewRequest, setShowNewRequest] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const interactiveRooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS.includes(r.id));
   const allBenches = interactiveRooms.flatMap((r) => getBenchesForRoom(state, r.id));
 
@@ -130,8 +132,12 @@ export default function SchedulingPage() {
               const room = assignedBench ? getRoom(state, assignedBench.roomId) : roomForProcedure(state, tr.procedure);
               const roomBenches = room ? getBenchesForRoom(state, room.id) : [];
               return (
-                <tr key={tr.id} className="border-b border-op-border last:border-b-0">
-                  <td className="px-4.5 py-3 font-mono text-[12.5px] text-op-text-dim">{tr.id.toUpperCase()}</td>
+                <tr
+                  key={tr.id}
+                  onClick={() => setSelectedRequest(tr)}
+                  className="border-b border-op-border last:border-b-0 cursor-pointer hover:bg-op-panel-raised transition-colors"
+                >
+                  <td className="px-4.5 py-3 font-mono text-[12.5px] text-op-teal-dim hover:underline">{tr.id.toUpperCase()}</td>
                   <td className="px-4.5 py-3 text-[12px] text-op-text-dim">{room?.name || '—'}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text">{dut?.name}</td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text">{procedure?.name}</td>
@@ -142,7 +148,7 @@ export default function SchedulingPage() {
                     </span>
                   </td>
                   <td className="px-4.5 py-3 text-[13px] text-op-text-dim">{formatCalendarWeek(tr.requestedCompletionDay)}</td>
-                  <td className="px-4.5 py-3">
+                  <td className="px-4.5 py-3" onClick={(e) => e.stopPropagation()}>
                     <RowAction state={state} dispatch={dispatch} testRequest={tr} execution={execution} timing={timing} benches={roomBenches} />
                   </td>
                 </tr>
@@ -154,6 +160,12 @@ export default function SchedulingPage() {
 
       {showNewRequest && defaultRoomForModal && (
         <NewTestRequestModal room={defaultRoomForModal} onClose={() => setShowNewRequest(false)} />
+      )}
+      {selectedRequest && (
+        <TestRequestDetailOverlay
+          testRequest={state.testRequests.find((tr) => tr.id === selectedRequest.id) || selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+        />
       )}
     </div>
   );
