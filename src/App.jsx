@@ -3,6 +3,7 @@ import { AppProvider } from './context/AppContext.jsx';
 import TopBar from './components/shared/TopBar.jsx';
 import ZoomFitWrapper from './components/shared/ZoomFitWrapper.jsx';
 import ViewModeToggle from './components/shared/ViewModeToggle.jsx';
+import VersionFooter from './components/shared/VersionFooter.jsx';
 import OperateShell from './components/operate/OperateShell.jsx';
 import BuildShell from './components/build/BuildShell.jsx';
 import MobileShell from './components/mobile/MobileShell.jsx';
@@ -53,6 +54,7 @@ export default function App() {
       ) : (
         <AppShell viewMode={viewMode} onViewModeChange={setViewMode} />
       )}
+      <VersionFooter />
     </AppProvider>
   );
 }
