@@ -3,7 +3,7 @@
 // Rendered fixed in the corner, outside any scaled/transformed subtree, so it's
 // always at a real, readable size and lets you visually confirm a deploy landed
 // even if GitHub Pages is lagging behind a successful git push.
-export const APP_VERSION = 'v16';
+export const APP_VERSION = 'v17';
 
 export default function VersionFooter() {
   return (
