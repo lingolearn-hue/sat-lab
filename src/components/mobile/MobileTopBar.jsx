@@ -9,6 +9,10 @@ const ROLES = {
   lab_manager: { label: 'Laboratory Manager', initials: 'LM' },
 };
 
+// Same gap as the desktop top bar had: SET_CLOCK_SPEED already worked in the
+// reducer, but nothing in the mobile UI ever showed or let you change the speed.
+const SPEED_OPTIONS = [1, 6, 24, 60];
+
 export default function MobileTopBar({ onViewModeChange }) {
   const state = useAppState();
   const dispatch = useAppDispatch();
@@ -22,7 +26,7 @@ export default function MobileTopBar({ onViewModeChange }) {
         <div className="w-1.5 h-1.5 rounded-full bg-op-teal flex-shrink-0" />
         <div className="text-[11px] font-bold text-op-text truncate flex-1">SAT POWERTRAIN DEPT</div>
         <div className="text-[11px] font-semibold text-op-text-dim tabular-nums whitespace-nowrap">
-          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')}
+          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')} · ×{state.simClock.speedMultiplier}
         </div>
         <div className="text-[11px] font-bold text-op-teal-dim tabular-nums whitespace-nowrap">
           {formatMoney(state.facility.budget)}
@@ -53,7 +57,25 @@ export default function MobileTopBar({ onViewModeChange }) {
               </button>
             ))}
 
-            <div className="border-t border-op-border mt-2 pt-2">
+            <div className="border-t border-op-border mt-2 pt-3 px-5">
+              <div className="text-[11px] font-bold text-op-text-faint uppercase tracking-wide mb-2">Sim Clock Speed</div>
+              <div className="flex gap-2">
+                {SPEED_OPTIONS.map((speed) => (
+                  <button
+                    key={speed}
+                    onClick={() => dispatch({ type: 'SET_CLOCK_SPEED', speedMultiplier: speed })}
+                    className={`flex-1 text-[13px] font-semibold py-2 rounded-md border ${
+                      state.simClock.speedMultiplier === speed
+                        ? 'bg-op-teal text-white border-op-teal'
+                        : 'text-op-text-dim border-op-border'
+                    }`}
+                  >
+                    ×{speed}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="pt-2">
               <button
                 onClick={() => dispatch({ type: 'TOGGLE_CLOCK_RUNNING' })}
                 className="w-full text-left px-5 py-3 text-[14px] text-op-text"

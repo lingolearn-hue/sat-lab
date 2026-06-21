@@ -8,6 +8,12 @@ const ROLES = {
   lab_manager: { label: 'Laboratory Manager', initials: 'LM' },
 };
 
+// Multiplier applied on top of the fixed SIM_HOURS_PER_TICK (2 sim-hours/real-second
+// at x1) — this was previously displayed as static text with no way to actually
+// change it; SET_CLOCK_SPEED already existed in the reducer but nothing in the UI
+// ever dispatched it.
+const SPEED_OPTIONS = [1, 6, 24, 60];
+
 // viewMode/onViewModeChange are accepted but no longer rendered here — the
 // Mobile/Desktop toggle is now a single floating button in App.jsx, outside
 // ZoomFitWrapper's scaled subtree, so it stays a constant real size. Kept as
@@ -79,8 +85,19 @@ export default function TopBar({ mode, onModeChange, viewMode, onViewModeChange 
       <div className={`flex items-center gap-2 text-[13px] ${theme.chipBg} border ${theme.chipBorder} rounded-md px-3 py-1.5 ${theme.textDim}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${theme.dotColor} animate-pulse-dot`} />
         <span className="tabular-nums">
-          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')} · ×{state.simClock.speedMultiplier}
+          {formatCalendarWeek(state.simClock.day)} · {String(state.simClock.hour).padStart(2, '0')}:{String(state.simClock.minute).padStart(2, '0')}
         </span>
+        <select
+          value={state.simClock.speedMultiplier}
+          onChange={(e) => dispatch({ type: 'SET_CLOCK_SPEED', speedMultiplier: Number(e.target.value) })}
+          title="Sim clock speed"
+          className={`bg-transparent border-none text-[13px] tabular-nums ${theme.textDim} cursor-pointer focus:outline-none`}
+          style={{ appearance: 'none', paddingRight: 2 }}
+        >
+          {SPEED_OPTIONS.map((speed) => (
+            <option key={speed} value={speed} style={{ color: '#111' }}>×{speed}</option>
+          ))}
+        </select>
         <button
           onClick={() => dispatch({ type: 'TOGGLE_CLOCK_RUNNING' })}
           className={`ml-1 px-1.5 rounded ${theme.text} opacity-70 hover:opacity-100`}

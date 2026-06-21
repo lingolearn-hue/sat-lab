@@ -239,7 +239,7 @@ test.describe('Scheduling list — filters and ordering', () => {
 
   test('filtering by status narrows the list to only that status', async ({ page }) => {
     await page.click('text=Scheduling');
-    await page.selectOption('select >> nth=0', 'running');
+    await page.selectOption('select:has(option:has-text("All statuses"))', 'running');
     const statusCells = await page.locator('table tbody tr td:nth-child(6) span').allInnerTexts();
     expect(statusCells.every((s) => s === 'Running')).toBe(true);
   });
@@ -256,7 +256,7 @@ test.describe('Scheduling list — filters and ordering', () => {
     await page.reload();
     await page.click('text=Scheduling');
     const before = await page.locator('table tbody tr').count();
-    await page.selectOption('select >> nth=0', 'running');
+    await page.selectOption('select:has(option:has-text("All statuses"))', 'running');
     await page.click('text=Clear filters');
     const after = await page.locator('table tbody tr').count();
     expect(after).toBe(before);
@@ -295,5 +295,16 @@ test.describe('Deferred-start scheduling and Gantt visualization', () => {
     // <title> child (native hover tooltip) with the same text, which matches
     // `text=TR-0303` too but is never visible by definition.
     await expect(page.locator('svg text:has-text("TR-0303")')).toBeVisible();
+  });
+});
+
+test.describe('Sim clock speed control', () => {
+  test('the speed dropdown in the top bar actually changes the sim clock speed', async ({ page }) => {
+    const before = await page.evaluate(() => JSON.parse(localStorage.getItem('satellite-test-center:state:v1')).simClock.speedMultiplier);
+    await page.selectOption('select[title="Sim clock speed"]', '1');
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('satellite-test-center:state:v1')).simClock.speedMultiplier);
+    expect(after).toBe(1);
+    expect(after).not.toBe(before);
   });
 });

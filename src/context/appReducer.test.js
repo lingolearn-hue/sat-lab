@@ -62,6 +62,36 @@ describe('appReducer — role and clock', () => {
     expect(next.simClock.running).toBe(!wasRunning);
   });
 
+  // SET_CLOCK_SPEED existed in the reducer since the original v1 build, but
+  // nothing in the UI ever dispatched it — the top bar only displayed the speed
+  // as static text. Adding coverage now that a real control (desktop dropdown +
+  // mobile sheet chips) finally calls this.
+  it('SET_CLOCK_SPEED updates the speed multiplier', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SET_CLOCK_SPEED', speedMultiplier: 60 });
+    expect(next.simClock.speedMultiplier).toBe(60);
+  });
+
+  it('SET_CLOCK_SPEED logs an audit entry naming the new speed', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SET_CLOCK_SPEED', speedMultiplier: 6 });
+    const lastEntry = next.auditLog[next.auditLog.length - 1];
+    expect(lastEntry.summary).toBe('Sim clock speed changed to ×6');
+  });
+
+  it('a changed speed multiplier actually changes how much sim time TICK_CLOCK advances per real second', () => {
+    const state = freshState();
+    const slow = appReducer(state, { type: 'SET_CLOCK_SPEED', speedMultiplier: 1 });
+    const fast = appReducer(state, { type: 'SET_CLOCK_SPEED', speedMultiplier: 60 });
+    // Both ticks represent "1 real second" worth of sim time at their respective
+    // speeds: SIM_HOURS_PER_TICK (2h) x speedMultiplier, converted to minutes.
+    const slowNext = appReducer(slow, { type: 'TICK_CLOCK', simMinutesElapsed: 2 * 60 * 1 });
+    const fastNext = appReducer(fast, { type: 'TICK_CLOCK', simMinutesElapsed: 2 * 60 * 60 });
+    const slowMinutesElapsed = (slowNext.simClock.day - state.simClock.day) * 1440 + (slowNext.simClock.hour - state.simClock.hour) * 60 + (slowNext.simClock.minute - state.simClock.minute);
+    const fastMinutesElapsed = (fastNext.simClock.day - state.simClock.day) * 1440 + (fastNext.simClock.hour - state.simClock.hour) * 60 + (fastNext.simClock.minute - state.simClock.minute);
+    expect(fastMinutesElapsed).toBeGreaterThan(slowMinutesElapsed);
+  });
+
   it('TICK_CLOCK does not create an audit log entry (excluded action)', () => {
     const state = freshState();
     const before = state.auditLog.length;
