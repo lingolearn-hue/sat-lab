@@ -8,6 +8,7 @@ import {
   getPassFailStats,
   getThroughputByProcedure,
   getProcedure,
+  getGanttData,
   formatMoney,
   formatCalendarWeek,
 } from '../../data/selectors.js';
@@ -29,6 +30,13 @@ export default function StatisticsPage() {
 
   const selectedRoom = state.rooms.find((r) => r.id === selectedRoomId);
   const roomTrend = selectedRoomId ? getRoomUtilizationTrend(state, selectedRoomId) : [];
+
+  // Default window: a week before today through ~5 weeks after, wide enough to
+  // show both recently-finished work and any far-out deferred reservations without
+  // the chart becoming illegibly compressed for the common case.
+  const ganttWindowStart = Math.max(1, state.simClock.day - 7);
+  const ganttWindowEnd = state.simClock.day + 35;
+  const ganttLanes = getGanttData(state, { windowStartDay: ganttWindowStart, windowEndDay: ganttWindowEnd });
 
   return (
     <div className="px-8 py-7">
@@ -156,6 +164,10 @@ export default function StatisticsPage() {
         </Panel>
       )}
 
+      <Panel title="Bench Schedule (Gantt) — All Interactive Labs">
+        <GanttChart lanes={ganttLanes} windowStartDay={ganttWindowStart} windowEndDay={ganttWindowEnd} todayDay={state.simClock.day} />
+      </Panel>
+
       {selectedRoom && (
         <RoomDrilldownOverlay room={selectedRoom} trend={roomTrend} onClose={() => setSelectedRoomId(null)} />
       )}
@@ -232,6 +244,110 @@ function Panel({ title, children }) {
 
 function EmptyChart({ text }) {
   return <div className="flex items-center justify-center h-[180px] text-[12.5px] text-op-text-faint text-center px-8">{text}</div>;
+}
+
+// Custom SVG rather than a recharts stacked-bar hack: recharts' bar primitives
+// assume one row = one value, which doesn't fit "one bench lane with an arbitrary
+// number of time-segments, including gaps between them." A hand-rolled SVG gives
+// direct control over arbitrary segment positions/widths per lane, which is what a
+// Gantt view fundamentally needs. This is read-only — segments aren't draggable;
+// rescheduling happens through the normal Scheduling page action, not here.
+const PHASE_COLORS = {
+  queued: { fill: '#E3E6EA', stroke: '#9AA1AB', label: 'Reserved (not yet started)' },
+  scheduled: { fill: '#9AA1AB', stroke: '#6B7280', label: 'Starting' },
+  running: { fill: TEAL, stroke: '#16695D', label: 'Running' },
+  review: { fill: ORANGE, stroke: '#8A4310', label: 'In review' },
+  completed: { fill: '#C9D6D3', stroke: '#8FA59F', label: 'Completed' },
+};
+
+function GanttChart({ lanes, windowStartDay, windowEndDay, todayDay }) {
+  const lanesWithSegments = lanes.filter((l) => l.segments.length > 0);
+  if (lanesWithSegments.length === 0) {
+    return <EmptyChart text="No scheduled or running tests in the current window yet." />;
+  }
+
+  const totalDays = windowEndDay - windowStartDay;
+  const rowHeight = 34;
+  const headerHeight = 26;
+  const labelWidth = 96;
+  const chartWidth = 760;
+  const chartHeight = headerHeight + lanesWithSegments.length * rowHeight + 8;
+  const dayToX = (day) => labelWidth + ((day - windowStartDay) / totalDays) * (chartWidth - labelWidth);
+
+  // Week gridlines (every 7 days from the window start) give a sense of scale
+  // without needing every single day labeled, which would be too dense at this width.
+  const weekTicks = [];
+  for (let d = windowStartDay; d <= windowEndDay; d += 7) weekTicks.push(d);
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={chartWidth} height={chartHeight} style={{ minWidth: chartWidth }}>
+        {weekTicks.map((day) => (
+          <g key={day}>
+            <line x1={dayToX(day)} y1={headerHeight} x2={dayToX(day)} y2={chartHeight - 4} stroke={GRID} strokeWidth={1} />
+            <text x={dayToX(day)} y={16} fontSize={10} fill="#9AA1AB" textAnchor="middle">
+              {formatCalendarWeek(day)}
+            </text>
+          </g>
+        ))}
+        {todayDay >= windowStartDay && todayDay <= windowEndDay && (
+          <line x1={dayToX(todayDay)} y1={headerHeight} x2={dayToX(todayDay)} y2={chartHeight - 4} stroke={RED} strokeWidth={1.5} strokeDasharray="3,3" />
+        )}
+
+        {lanesWithSegments.map((lane, rowIndex) => {
+          const y = headerHeight + rowIndex * rowHeight;
+          return (
+            <g key={lane.benchId}>
+              <text x={0} y={y + rowHeight / 2 + 4} fontSize={11} fontWeight={600} fill="#3A3F47">
+                {lane.benchLabel}
+              </text>
+              <line x1={labelWidth} y1={y + rowHeight} x2={chartWidth} y2={y + rowHeight} stroke={GRID} strokeWidth={1} />
+              {lane.segments.map((seg) => {
+                const colors = PHASE_COLORS[seg.phase] || PHASE_COLORS.scheduled;
+                const x1 = Math.max(labelWidth, dayToX(Math.max(seg.startDay, windowStartDay)));
+                const x2 = Math.min(chartWidth, dayToX(Math.min(seg.endDay, windowEndDay)));
+                const barWidth = Math.max(2, x2 - x1);
+                return (
+                  <g key={seg.executionId}>
+                    <rect
+                      x={x1}
+                      y={y + 6}
+                      width={barWidth}
+                      height={rowHeight - 14}
+                      rx={3}
+                      fill={colors.fill}
+                      stroke={colors.stroke}
+                      strokeWidth={seg.isDeferred ? 1.5 : 1}
+                      strokeDasharray={seg.isDeferred ? '4,2' : undefined}
+                    >
+                      <title>{`${seg.testRequestId.toUpperCase()} — ${seg.procedureName} (${colors.label}, ${formatCalendarWeek(seg.startDay)} – ${formatCalendarWeek(seg.endDay)})`}</title>
+                    </rect>
+                    {barWidth > 70 && (
+                      <text x={x1 + 6} y={y + rowHeight / 2 + 4} fontSize={10} fill={seg.phase === 'running' ? '#fff' : '#3A3F47'} pointerEvents="none">
+                        {seg.testRequestId.toUpperCase()}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex items-center gap-4 mt-3 px-1">
+        {Object.entries(PHASE_COLORS).map(([phase, c]) => (
+          <div key={phase} className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: c.fill, border: `1px solid ${c.stroke}` }} />
+            <span className="text-[10.5px] text-op-text-faint">{c.label}</span>
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5">
+          <span className="w-3 h-0 border-t border-dashed" style={{ borderColor: RED }} />
+          <span className="text-[10.5px] text-op-text-faint">Today</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function LegendRow({ color, label, value }) {

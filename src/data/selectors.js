@@ -6,6 +6,7 @@ import {
   CALIBRATION_DUE_HOURS,
   QUALIFICATION_DOMAINS,
   hashStringToUnitInterval,
+  getProcedureDurationHours,
 } from '../data/catalog.js';
 
 export function getRoom(state, roomId) {
@@ -300,6 +301,81 @@ export function groupChannels(channelStatuses) {
     groups.push(channelStatuses.slice(i, i + CHANNEL_GROUP_SIZE));
   }
   return groups;
+}
+
+// ---- Gantt chart (Statistics) ----
+// One lane per bench in the 4 interactive rooms, with a segment per execution that
+// bench has ever run (or is currently running/queued for). Each segment spans real
+// sim-days, including the gap between a deferred reservation's creation and its
+// actual start — that gap is what makes "schedule for later, leave a gap" visible.
+// Read-only: this derives a picture of what's already scheduled, it doesn't let
+// the person drag bars around (that's explicitly out of scope for this pass).
+const INTERACTIVE_ROOM_IDS_FOR_GANTT = ['room-ipl', 'room-fcpl', 'room-ctl', 'room-tql'];
+
+export function getGanttData(state, { windowStartDay, windowEndDay } = {}) {
+  const rooms = state.rooms.filter((r) => INTERACTIVE_ROOM_IDS_FOR_GANTT.includes(r.id));
+  const benches = rooms.flatMap((r) => getBenchesForRoom(state, r.id).map((b) => ({ ...b, roomName: r.name })));
+
+  const lanes = benches.map((bench) => {
+    const benchExecutions = state.executions.filter((e) => e.benchId === bench.id);
+    const segments = benchExecutions
+      .map((execution) => {
+        const testRequest = state.testRequests.find((tr) => tr.id === execution.testRequestId);
+        if (!testRequest) return null;
+
+        // For a deferred (queued) execution, the segment starts when it was first
+        // reserved (so the gap before scheduledStartDay is visible as "reserved,
+        // not yet running") and ends at a projected finish based on the procedure's
+        // expected duration — we don't know the real running duration yet since it
+        // hasn't started, so this is an estimate, clearly distinguishable by phase.
+        const reservedFromMinutes = execution.phaseStartedAtSimMinutes;
+        const reservedFromDay = Math.floor(reservedFromMinutes / 1440);
+
+        let startDay;
+        let endDay;
+        if (execution.phase === 'queued') {
+          startDay = reservedFromDay;
+          const estimatedRunHours = getProcedureDurationHoursSafe(testRequest.procedure, testRequest.dutId);
+          endDay = execution.scheduledStartDay + Math.ceil(estimatedRunHours / 24);
+        } else {
+          // Once active, the segment runs from when it actually started running
+          // (not from the original reservation day) through its known/estimated
+          // completion, using runningPhaseDurationHours when available (set once
+          // the running phase begins) or the scheduled/elapsed phase as a fallback.
+          startDay = reservedFromDay;
+          const runHours = execution.runningPhaseDurationHours
+            ?? getProcedureDurationHoursSafe(testRequest.procedure, testRequest.dutId);
+          endDay = startDay + Math.max(1, Math.ceil(runHours / 24));
+        }
+
+        return {
+          executionId: execution.id,
+          testRequestId: testRequest.id,
+          procedureName: getProcedure(testRequest.procedure)?.name || testRequest.procedure,
+          phase: execution.phase,
+          startDay,
+          endDay,
+          isDeferred: execution.phase === 'queued',
+        };
+      })
+      .filter(Boolean)
+      .filter((seg) => {
+        if (windowStartDay == null || windowEndDay == null) return true;
+        return seg.endDay >= windowStartDay && seg.startDay <= windowEndDay;
+      });
+
+    return { benchId: bench.id, benchLabel: bench.id.toUpperCase(), roomName: bench.roomName, segments };
+  });
+
+  return lanes;
+}
+
+function getProcedureDurationHoursSafe(procedureId, dutId) {
+  try {
+    return getProcedureDurationHours(procedureId, dutId);
+  } catch {
+    return 24;
+  }
 }
 
 // ---- Statistics ----

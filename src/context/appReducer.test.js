@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { appReducer } from '../context/appReducer.js';
 import { createInitialState } from '../data/seed.js';
+import { EXECUTION_PHASE_DURATIONS_HOURS } from '../data/catalog.js';
 
 // All tests start from a fresh copy of the real seed data — same starting point
 // every manual regression check in this project has used, so these tests exercise
@@ -23,6 +24,24 @@ function freshApprovedRequest(state) {
     procedure: 'efficiency_mapping',
     priority: 'low',
     requestedCompletionDay: 28,
+  });
+  const tr = submitted.testRequests.find((t) => !before.includes(t.id));
+  const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: tr.id });
+  return { state: approved, testRequestId: tr.id };
+}
+
+// Same idea as freshApprovedRequest, but parameterized for tests that need a
+// specific project/DUT/procedure combination (e.g. a Fuel Cell request, or an
+// endurance-category one) rather than the generic Ion Propulsion default.
+function freshApprovedRequestFor(state, projectId, dutId, procedure) {
+  const before = state.testRequests.map((tr) => tr.id);
+  const submitted = appReducer(state, {
+    type: 'SUBMIT_TEST_REQUEST',
+    projectId,
+    dutId,
+    procedure,
+    priority: 'normal',
+    requestedCompletionDay: state.simClock.day + 30,
   });
   const tr = submitted.testRequests.find((t) => !before.includes(t.id));
   const approved = appReducer(submitted, { type: 'APPROVE_TEST_REQUEST', testRequestId: tr.id });
@@ -352,6 +371,92 @@ describe('appReducer — test request workflow', () => {
     const next = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0403', benchId: 'bnc-ctl-02' });
     expect(next.testRequests.find((t) => t.id === 'tr-0403').status).toBe('submitted');
     expect(next.executions.some((e) => e.testRequestId === 'tr-0403')).toBe(false);
+  });
+});
+
+describe('appReducer — deferred-start scheduling (Gantt support)', () => {
+  it('a startOnDay in the future reserves the bench instead of starting it immediately', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 30 });
+    const bench = next.benches.find((b) => b.id === 'bnc-fcpl-02');
+    expect(bench.status).toBe('reserved'); // not 'running' — no wear/occupancy yet
+    expect(bench.status).not.toBe('idle'); // but not free for another schedule either
+
+    const tr = next.testRequests.find((t) => t.id === 'tr-0303');
+    expect(tr.status).toBe('scheduled');
+    expect(tr.scheduledStartDay).toBe(30);
+
+    const execution = next.executions.find((e) => e.testRequestId === 'tr-0303');
+    expect(execution.phase).toBe('queued');
+    expect(execution.scheduledStartDay).toBe(30);
+    expect(execution.phaseDurationHours).toBeNull();
+  });
+
+  it('omitting startOnDay behaves exactly as before — immediate start, bench running', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02' });
+    expect(next.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('running');
+    const execution = next.executions.find((e) => e.testRequestId === 'tr-0303');
+    expect(execution.phase).toBe('scheduled');
+  });
+
+  it('a startOnDay equal to or before today is treated as an immediate start, not deferred', () => {
+    const state = freshState();
+    const next = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: state.simClock.day });
+    expect(next.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('running');
+    expect(next.testRequests.find((t) => t.id === 'tr-0303').scheduledStartDay).toBeNull();
+  });
+
+  it('a reserved bench cannot be scheduled onto again until its reservation activates', () => {
+    const state = freshState();
+    const reserved = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 30 });
+    const { state: approved, testRequestId } = freshApprovedRequestFor(reserved, 'proj-sat005', 'dut-fcp1', 'fc_efficiency');
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-fcpl-02' });
+    // bench is 'reserved', not 'idle' — the second schedule attempt must be refused.
+    expect(next.executions.filter((e) => e.benchId === 'bnc-fcpl-02').length).toBe(1);
+  });
+
+  it('TICK_CLOCK activates a due reservation: bench goes reserved -> running, execution goes queued -> scheduled', () => {
+    let state = freshState();
+    state = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 16 });
+    expect(state.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('reserved');
+
+    const stillQueued = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 }); // day 15, not due yet
+    expect(stillQueued.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('reserved');
+    expect(stillQueued.executions.find((e) => e.testRequestId === 'tr-0303').phase).toBe('queued');
+
+    const activated = appReducer(stillQueued, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 2 }); // day 17, past 16
+    expect(activated.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('running');
+    const execution = activated.executions.find((e) => e.testRequestId === 'tr-0303');
+    expect(execution.phase).toBe('scheduled');
+    expect(execution.phaseDurationHours).toBe(EXECUTION_PHASE_DURATIONS_HOURS.scheduled);
+  });
+
+  it('activation fires an event naming the request and bench', () => {
+    let state = freshState();
+    state = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 16 });
+    state = appReducer(state, { type: 'TICK_CLOCK', simMinutesElapsed: 1440 * 3 });
+    expect(state.eventFeed.some((e) => e.message === 'TR-0303 reservation activated on BNC-FCPL-02')).toBe(true);
+  });
+
+  it('ADVANCE_EXECUTION_PHASE is a no-op on a queued (not-yet-due) execution — only TICK_CLOCK can activate it', () => {
+    const state = freshState();
+    const next0 = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 30 });
+    const execution = next0.executions.find((e) => e.testRequestId === 'tr-0303');
+    const next = appReducer(next0, { type: 'ADVANCE_EXECUTION_PHASE', executionId: execution.id });
+    // Without the explicit guard, phaseOrder.indexOf('queued') === -1 would silently
+    // fall through to phaseOrder[0] ('scheduled') — this locks in that it doesn't.
+    expect(next.executions.find((e) => e.id === execution.id).phase).toBe('queued');
+    expect(next.benches.find((b) => b.id === 'bnc-fcpl-02').status).toBe('reserved');
+  });
+
+  it('an endurance-category deferred reservation still requires MIN_TIER_FOR_ENDURANCE at the time of scheduling', () => {
+    const state = freshState();
+    // bnc-ipl-03 is tier 1 — deferred start doesn't bypass the tier-gating check.
+    const { state: approved, testRequestId } = freshApprovedRequestFor(state, 'proj-sat004', 'dut-xr5', 'lifetime');
+    const next = appReducer(approved, { type: 'SCHEDULE_TEST_REQUEST', testRequestId, benchId: 'bnc-ipl-03', startOnDay: 40 });
+    expect(next.testRequests.find((t) => t.id === testRequestId).status).toBe('approved'); // refused, unchanged
+    expect(next.benches.find((b) => b.id === 'bnc-ipl-03').status).toBe('idle');
   });
 });
 

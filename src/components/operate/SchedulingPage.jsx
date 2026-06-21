@@ -268,6 +268,9 @@ export function getSchedulingAction(state, testRequest, execution, timing, bench
     }
     return { kind: 'schedule', benchId: idleBench.id };
   }
+  if (execution && execution.phase === 'queued') {
+    return { kind: 'queued', startOnDay: execution.scheduledStartDay };
+  }
   if (execution && ['scheduled', 'running', 'review'].includes(execution.phase) && timing?.isDue) {
     const nextLabel = { scheduled: 'Start Test', running: 'Move to Review', review: 'Complete' }[execution.phase];
     return { kind: 'advance', executionId: execution.id, label: nextLabel };
@@ -301,14 +304,10 @@ function RowAction({ state, dispatch, testRequest, execution, timing, benches })
     return <span className={`text-[11.5px] ${action.severity === 'warning' ? 'text-op-orange' : 'text-op-text-faint'}`}>{action.reason}</span>;
   }
   if (action.kind === 'schedule') {
-    return (
-      <button
-        onClick={() => dispatch({ type: 'SCHEDULE_TEST_REQUEST', testRequestId: testRequest.id, benchId: action.benchId })}
-        className="text-[12px] font-semibold text-op-teal-dim hover:underline"
-      >
-        Schedule on {action.benchId.toUpperCase()}
-      </button>
-    );
+    return <ScheduleButton action={action} dispatch={dispatch} testRequest={testRequest} state={state} />;
+  }
+  if (action.kind === 'queued') {
+    return <span className="text-[11.5px] text-op-text-faint">Starts {formatCalendarWeek(action.startOnDay)}</span>;
   }
   if (action.kind === 'advance') {
     return (
@@ -324,6 +323,73 @@ function RowAction({ state, dispatch, testRequest, execution, timing, benches })
     return <span className="text-[11.5px] text-op-text-faint">{action.reason}</span>;
   }
   return <span className="text-[11.5px] text-op-text-faint">—</span>;
+}
+
+// Offers a choice between starting now (today's default, one click) and deferring
+// to a future day — the "optional start on day X" field. Deliberately a small
+// inline popover rather than a full modal, since this is a quick decision attached
+// to one row, not a multi-field form like NewTestRequestModal.
+function ScheduleButton({ action, dispatch, testRequest, state }) {
+  const [open, setOpen] = useState(false);
+  const [startDay, setStartDay] = useState(state.simClock.day + 1);
+
+  function scheduleNow() {
+    dispatch({ type: 'SCHEDULE_TEST_REQUEST', testRequestId: testRequest.id, benchId: action.benchId });
+    setOpen(false);
+  }
+
+  function scheduleDeferred() {
+    dispatch({ type: 'SCHEDULE_TEST_REQUEST', testRequestId: testRequest.id, benchId: action.benchId, startOnDay: Number(startDay) });
+    setOpen(false);
+  }
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-[12px] font-semibold text-op-teal-dim hover:underline">
+        Schedule on {action.benchId.toUpperCase()}
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute right-0 top-0 z-20 bg-white border border-op-border rounded-md shadow-lg p-3 w-56">
+        <div className="text-[11px] font-semibold text-op-text-faint uppercase tracking-wide mb-2">When should this start?</div>
+        <button
+          onClick={scheduleNow}
+          className="w-full text-left text-[12.5px] font-semibold text-white bg-op-teal rounded-md px-3 py-2 mb-2 hover:bg-op-teal-dim"
+        >
+          Start now
+        </button>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <span className="text-[11.5px] text-op-text-faint whitespace-nowrap">Day</span>
+          <input
+            type="number"
+            value={startDay}
+            min={state.simClock.day + 1}
+            onChange={(e) => setStartDay(e.target.value)}
+            className="w-16 text-[12.5px] border border-op-border rounded-md px-2 py-1 focus:outline-none focus:border-op-teal"
+          />
+          <span className="text-[11px] text-op-text-faint whitespace-nowrap">({formatCalendarWeek(Number(startDay) || state.simClock.day)})</span>
+        </div>
+        {Number(startDay) <= state.simClock.day && (
+          <div className="text-[10.5px] text-op-red mb-2">
+            That day has already passed (now {formatCalendarWeek(state.simClock.day)}) — pick a later day.
+          </div>
+        )}
+        <button
+          onClick={scheduleDeferred}
+          disabled={Number(startDay) <= state.simClock.day}
+          className={`w-full text-[12px] font-semibold text-op-teal-dim border border-op-border rounded-md px-3 py-1.5 hover:bg-op-panel-raised disabled:opacity-40 disabled:cursor-not-allowed ${Number(startDay) <= state.simClock.day ? '' : 'mt-0.5'}`}
+        >
+          Start on that day
+        </button>
+        <button onClick={() => setOpen(false)} className="w-full text-[11px] text-op-text-faint mt-2 hover:underline">
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function Kpi({ label, value, delta, accentTeal, accentOrange }) {

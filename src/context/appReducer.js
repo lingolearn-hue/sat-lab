@@ -201,6 +201,7 @@ function tickClock(state, simMinutesElapsed) {
       const dayNumber = state.simClock.day + i;
       next = expireStaleTestRequestsForDay(next, dayNumber);
       next = generateRequestsForOneDay(next, dayNumber);
+      next = activateDueReservations(next, dayNumber);
     }
   }
 
@@ -452,7 +453,7 @@ function updateTestRequestStatus(state, testRequestId, status) {
 }
 
 function scheduleTestRequest(state, action) {
-  const { testRequestId, benchId } = action;
+  const { testRequestId, benchId, startOnDay } = action;
   const testRequest = state.testRequests.find((tr) => tr.id === testRequestId);
   if (!testRequest || testRequest.status !== 'approved') return state; // enforce Approved -> Scheduled order
 
@@ -474,8 +475,19 @@ function scheduleTestRequest(state, action) {
   // personnel — only the four interactive rooms have a real staffing constraint.
   if (qualification && !person) return state;
 
+  // Deferred start: a future startOnDay reserves the bench (status 'reserved', not
+  // 'idle' — blocks other scheduling onto it — and not 'running' — doesn't accrue
+  // wear or occupy the bench yet) instead of starting immediately. This is what
+  // creates a real gap between "scheduled" and "actually running," and is what lets
+  // a bench have a future commitment while still showing idle time before it. The
+  // reservation activates automatically (see activateDueReservations) once the sim
+  // clock reaches startOnDay — no separate action needed.
+  const isDeferred = typeof startOnDay === 'number' && startOnDay > state.simClock.day;
+
   const testRequests = state.testRequests.map((tr) =>
-    tr.id === testRequestId ? { ...tr, status: 'scheduled', assignedBenchId: benchId } : tr
+    tr.id === testRequestId
+      ? { ...tr, status: 'scheduled', assignedBenchId: benchId, scheduledStartDay: isDeferred ? startOnDay : null }
+      : tr
   );
 
   const execution = {
@@ -483,14 +495,15 @@ function scheduleTestRequest(state, action) {
     testRequestId,
     benchId,
     assignedPersonnelId: person ? person.id : null,
-    phase: 'scheduled',
+    phase: isDeferred ? 'queued' : 'scheduled',
     phaseStartedAtSimMinutes: currentSimMinutes(state),
-    phaseDurationHours: EXECUTION_PHASE_DURATIONS_HOURS.scheduled,
+    phaseDurationHours: isDeferred ? null : EXECUTION_PHASE_DURATIONS_HOURS.scheduled,
+    scheduledStartDay: isDeferred ? startOnDay : null,
     result: null,
   };
 
   const benches = state.benches.map((b) =>
-    b.id === benchId ? { ...b, status: 'running', currentExecutionId: execution.id } : b
+    b.id === benchId ? { ...b, status: isDeferred ? 'reserved' : 'running', currentExecutionId: execution.id } : b
   );
 
   const next = {
@@ -500,13 +513,62 @@ function scheduleTestRequest(state, action) {
     benches,
   };
   const personNote = person ? ` (supervised by ${person.name})` : '';
-  return addEvent(next, `${testRequestId.toUpperCase()} scheduled on ${benchId.toUpperCase()}${personNote}`, testRequestId, 'info');
+  const whenNote = isDeferred ? ` for ${formatCalendarWeekForEvent(startOnDay)}` : '';
+  return addEvent(next, `${testRequestId.toUpperCase()} scheduled on ${benchId.toUpperCase()}${whenNote}${personNote}`, testRequestId, 'info');
+}
+
+// Local helper kept tiny and dependency-free (no import of the React-facing
+// selectors module from the reducer) — just enough to make event-feed text read
+// sensibly; the real, canonical CW formatting for UI display is formatCalendarWeek
+// in selectors.js.
+function formatCalendarWeekForEvent(day) {
+  const safeDay = Math.max(1, Math.floor(day));
+  const week = Math.floor((safeDay - 1) / 7) + 1;
+  const dayOfWeek = ((safeDay - 1) % 7) + 1;
+  return `CW${week}.${dayOfWeek}`;
+}
+
+// Once the sim clock reaches a reservation's scheduledStartDay, flip it from
+// 'queued' into the normal 'scheduled' phase (the same 1-hour setup buffer every
+// immediate-start execution already goes through) and the bench from 'reserved'
+// into 'running'. Checked once per day-rollover, alongside expiry/arrival.
+function activateDueReservations(state, currentDay) {
+  const dueExecutionIds = new Set(
+    state.executions
+      .filter((e) => e.phase === 'queued' && e.scheduledStartDay <= currentDay)
+      .map((e) => e.id)
+  );
+  if (dueExecutionIds.size === 0) return state;
+
+  const executions = state.executions.map((e) =>
+    dueExecutionIds.has(e.id)
+      ? { ...e, phase: 'scheduled', phaseStartedAtSimMinutes: currentSimMinutes(state), phaseDurationHours: EXECUTION_PHASE_DURATIONS_HOURS.scheduled }
+      : e
+  );
+
+  const benches = state.benches.map((b) =>
+    b.currentExecutionId && dueExecutionIds.has(b.currentExecutionId) ? { ...b, status: 'running' } : b
+  );
+
+  let next = { ...state, executions, benches };
+  for (const e of state.executions) {
+    if (dueExecutionIds.has(e.id)) {
+      next = addEvent(next, `${e.testRequestId.toUpperCase()} reservation activated on ${e.benchId.toUpperCase()}`, e.testRequestId, 'info');
+    }
+  }
+  return next;
 }
 
 function advanceExecutionPhase(state, action) {
   const { executionId } = action;
   const execution = state.executions.find((e) => e.id === executionId);
   if (!execution) return state;
+  // A 'queued' execution (deferred-start reservation not yet due) only transitions
+  // via activateDueReservations on a day-rollover — never by this manual action.
+  // Without this guard, phaseOrder.indexOf('queued') === -1 would silently fall
+  // through to phaseOrder[0] ('scheduled'), skipping the bench-status flip from
+  // 'reserved' to 'running' that activateDueReservations is responsible for.
+  if (execution.phase === 'queued') return state;
 
   const bench = state.benches.find((b) => b.id === execution.benchId);
   const testRequest = state.testRequests.find((tr) => tr.id === execution.testRequestId);

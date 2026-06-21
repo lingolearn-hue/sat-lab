@@ -262,3 +262,38 @@ test.describe('Scheduling list — filters and ordering', () => {
     expect(after).toBe(before);
   });
 });
+
+test.describe('Deferred-start scheduling and Gantt visualization', () => {
+  test('scheduling a request for a future day reserves the bench without starting it, and shows on the Gantt chart', async ({ page }) => {
+    // Pause the clock so the day doesn't drift while interacting with the popover.
+    await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      s.simClock.running = false;
+      localStorage.setItem('satellite-test-center:state:v1', JSON.stringify(s));
+    });
+    await page.reload();
+
+    await page.click('text=Scheduling');
+    await page.click('text=Schedule on BNC-FCPL-02');
+    await page.fill('input[type="number"]', '30');
+    await page.click('text=Start on that day');
+    await page.waitForTimeout(200);
+
+    const state = await page.evaluate(() => {
+      const s = JSON.parse(localStorage.getItem('satellite-test-center:state:v1'));
+      const bench = s.benches.find((b) => b.id === 'bnc-fcpl-02');
+      const tr = s.testRequests.find((t) => t.id === 'tr-0303');
+      return { benchStatus: bench.status, trScheduledStartDay: tr.scheduledStartDay };
+    });
+    expect(state.benchStatus).toBe('reserved');
+    expect(state.trScheduledStartDay).toBe(30);
+
+    await page.click('text=Statistics');
+    await expect(page.locator('text=Bench Schedule (Gantt)')).toBeVisible();
+    await page.locator('text=Bench Schedule (Gantt)').scrollIntoViewIfNeeded();
+    // Target the visible SVG <text> label specifically — the bar also has a
+    // <title> child (native hover tooltip) with the same text, which matches
+    // `text=TR-0303` too but is never visible by definition.
+    await expect(page.locator('svg text:has-text("TR-0303")')).toBeVisible();
+  });
+});

@@ -15,10 +15,12 @@ import {
   deriveDefaultStakeholders,
   deriveDefaultDivergence,
   getPlaceholderDocuments,
+  getGanttData,
   CHANNEL_GROUP_SIZE,
 } from './selectors.js';
 import { createInitialState } from './seed.js';
 import { BENCH_TYPES } from './catalog.js';
+import { appReducer } from '../context/appReducer.js';
 
 describe('formatMoney', () => {
   it('formats positive amounts with a dollar sign and thousands separators', () => {
@@ -309,5 +311,60 @@ describe('getPlaceholderDocuments', () => {
     const a = getPlaceholderDocuments(state, tr);
     const b = getPlaceholderDocuments(state, tr);
     expect(a).toEqual(b);
+  });
+});
+
+describe('getGanttData', () => {
+  it('returns one lane per bench across all 4 interactive rooms (9 benches total)', () => {
+    const state = createInitialState();
+    const lanes = getGanttData(state);
+    expect(lanes.length).toBe(9);
+  });
+
+  it('a bench with no executions ever has an empty segments array, not an error', () => {
+    const state = createInitialState();
+    const lanes = getGanttData(state);
+    const idleBench = lanes.find((l) => l.benchId === 'bnc-ipl-03'); // idle in seed, no executions
+    expect(idleBench.segments).toEqual([]);
+  });
+
+  it('a running execution produces a segment with phase "running" and a sensible day span', () => {
+    const state = createInitialState();
+    const lanes = getGanttData(state);
+    const lane = lanes.find((l) => l.benchId === 'bnc-ipl-01');
+    expect(lane.segments.length).toBe(1);
+    const seg = lane.segments[0];
+    expect(seg.phase).toBe('running');
+    expect(seg.endDay).toBeGreaterThan(seg.startDay);
+    expect(seg.isDeferred).toBe(false);
+  });
+
+  it('a deferred (queued) reservation produces a segment marked isDeferred, spanning from today through an estimated finish', () => {
+    let state = createInitialState();
+    state = appReducer(state, { type: 'SCHEDULE_TEST_REQUEST', testRequestId: 'tr-0303', benchId: 'bnc-fcpl-02', startOnDay: 30 });
+    const lanes = getGanttData(state);
+    const lane = lanes.find((l) => l.benchId === 'bnc-fcpl-02');
+    expect(lane.segments.length).toBe(1);
+    const seg = lane.segments[0];
+    expect(seg.phase).toBe('queued');
+    expect(seg.isDeferred).toBe(true);
+    expect(seg.startDay).toBe(state.simClock.day); // gap starts being visible from today
+    expect(seg.endDay).toBeGreaterThan(30); // extends past the actual start day by the estimated run length
+  });
+
+  it('a windowStartDay/windowEndDay filter excludes segments entirely outside the window', () => {
+    const state = createInitialState();
+    // The seeded endurance test (bnc-ipl-02) spans roughly day 1-35 — a window far
+    // in the future should exclude it.
+    const lanesInFarFuture = getGanttData(state, { windowStartDay: 500, windowEndDay: 600 });
+    const lane = lanesInFarFuture.find((l) => l.benchId === 'bnc-ipl-02');
+    expect(lane.segments.length).toBe(0);
+  });
+
+  it('without a window filter, all segments are returned regardless of how far out they span', () => {
+    const state = createInitialState();
+    const lanes = getGanttData(state);
+    const lane = lanes.find((l) => l.benchId === 'bnc-ipl-02');
+    expect(lane.segments.length).toBe(1);
   });
 });

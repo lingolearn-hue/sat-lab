@@ -170,6 +170,9 @@ function MobileActionButton({ action, dispatch, testRequest }) {
       </button>
     );
   }
+  if (action.kind === 'queued') {
+    return <div className="w-full text-center text-[12.5px] text-op-text-faint py-2">Starts {formatCalendarWeek(action.startOnDay)}</div>;
+  }
   if (action.kind === 'advance') {
     return (
       <button
